@@ -61,7 +61,7 @@ const ProductCard = ({ product }) => {
           <div className="flex justify-between items-center">
             <div className="flex gap-x-3 items-center text-xl font-semibold">
               <span className="text-gray-500 line-through">${product.mrp}</span>
-              <span className="text-2xl">$16.99</span>
+              <span className="text-2xl">Rp. {product.lowestPrice} - Rp. {product.highestPrice}</span>
             </div>
             <span className="text-gray-400 text-md">
               {product?.currentStock} left
