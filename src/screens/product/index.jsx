@@ -1,5 +1,9 @@
+'use client';
 import Button from "@/components/ui/Button";
 import Image from "next/image";
+import React from "react";
+import ToCartQuantity from "@/components/modal/Penawaran";
+
 
 // Kamu bisa ubah props di sini agar data produk masuk dari luar
 const Product = ({ product }) => {
@@ -13,7 +17,31 @@ const Product = ({ product }) => {
   } = product;
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  //   src={`${BASE_URL}${image}`}
+
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [fixedPrice, setFixedPrice] = React.useState(checkPrice());
+  const handleAddToCart = (data) => {};
+
+  const price = checkPrice();
+
+  function checkPrice() {
+    priceTiers.sort((a, b) => a.minQty - b.minQty);
+    console.log(priceTiers);
+    return priceTiers[0]?.unitPrice || 0;
+  }
+
+  function handleQuantityChange(quantity) {
+    console.log("Quantity changed to:", quantity);
+    let applicableTier = priceTiers
+      .filter((tier) => quantity >= tier.minQty)
+      .sort((a, b) => b.minQty - a.minQty)[0];
+
+    if (applicableTier) {
+      setFixedPrice(applicableTier.unitPrice);
+    } else {
+      setFixedPrice(priceTiers[0]?.unitPrice || 0);
+    }
+  }
 
   return (
     <>
@@ -78,7 +106,12 @@ const Product = ({ product }) => {
 
           {/* Tombol */}
           <div className="my-7 flex gap-x-5">
-            <Button className="custom-outline-btn w-full rounded-2xl">Add to Cart</Button>
+            <Button
+              className="custom-outline-btn w-full rounded-2xl"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Add to Cart
+            </Button>
             <Button className="w-full rounded-2xl">Buy Now</Button>
           </div>
         </div>
@@ -116,6 +149,19 @@ const Product = ({ product }) => {
           ))}
         </div>
       </div>
+      <ToCartQuantity
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleAddToCart}
+
+        initialData={{
+          quantity: product.moq,
+          price: price,
+          notes: "",
+          fixedPrice: fixedPrice,
+        }}
+        priceTiers={priceTiers}
+      />
     </>
   );
 };
