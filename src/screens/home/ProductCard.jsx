@@ -1,18 +1,22 @@
+'use client';
 import { StarIcon } from "@/components/icons";
 import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 
+const handleProductDetail = ({ productId }) => {
+  window.location.href = `/product/${productId}`;
+};
+
 const ProductCard = ({ product }) => {
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-
   return (
     <div
-      className="bg-white rounded-xl shadow-lg w-full h-full min-h-[624px]"
+      className="bg-white rounded-xl shadow-lg w-full h-full min-h-[400px]"
       key={product?.id}
     >
       <Image
-        className="w-full h-full rounded-t-xl max-h-96 object-cover"
+        className="w-full h-full rounded-t-xl max-h-74 object-cover"
         src={`${BASE_URL}/${product?.image}`}
         alt="product"
         width={0}
@@ -53,8 +57,13 @@ const ProductCard = ({ product }) => {
         </div>
 
         <div className="flex gap-x-2">
-          <Button className="w-full custom-outline-btn">Add to Cart</Button>
-          <Button className="w-full">Buy Now</Button>
+          <Button
+            className="w-full custom-outline-btn rounded-2xl "
+            onClick={() => handleProductDetail({ productId: product.id })}
+            text="View Details"
+          >
+            
+          </Button>
         </div>
       </div>
     </div>
