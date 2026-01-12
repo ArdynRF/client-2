@@ -1,3 +1,4 @@
+'use client";'
 import { cn } from "@/lib/utils";
 
 export default function Button({
@@ -5,6 +6,7 @@ export default function Button({
   onClick,
   className,
   children,
+  text,
   ...props
 }) {
   return (
@@ -14,7 +16,7 @@ export default function Button({
       onClick={onClick}
       {...props}
     >
-      Submit
+      {text || children}
     </button>
   );
 }
