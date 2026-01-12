@@ -22,7 +22,7 @@ const Product = ({ product }) => {
         <div className="w-full h-full bg-gray-100 rounded-xl p-3">
           <Image
             className="w-full h-full max-h-[calc(100vh-150px)] rounded-xl m-auto"
-            src={`${BASE_URL}${image}`}
+            src={`${BASE_URL}/${image}`}
             alt="product"
             width={0}
             height={0}

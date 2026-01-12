@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import Input from "../ui/Input";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getCustomerData } from "@/actions/authActions";
+import { getCustomerData, logoutUser } from "@/actions/authActions";
 
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -100,7 +100,7 @@ const Header = () => {
                 >
                   My Wishlist
                 </Link>
-                <button className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100 w-full text-left">
+                <button className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100 w-full text-left" onClick={logoutUser}>
                   Logout
                 </button>
               </div>
