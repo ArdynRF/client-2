@@ -13,7 +13,7 @@ const ProductCard = ({ product }) => {
     >
       <Image
         className="w-full h-full rounded-t-xl max-h-96 object-cover"
-        src={`${BASE_URL}${product?.image}`}
+        src={`${BASE_URL}/${product?.image}`}
         alt="product"
         width={0}
         height={0}
