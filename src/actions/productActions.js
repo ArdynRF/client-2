@@ -34,3 +34,5 @@ export async function getProductById(productId) {
 
   return data;
 }
+
+
