@@ -78,8 +78,8 @@ const Product = ({ product }) => {
 
           {/* Tombol */}
           <div className="my-7 flex gap-x-5">
-            <Button className="custom-outline-btn w-full">Add to Cart</Button>
-            <Button className="w-full">Buy Now</Button>
+            <Button className="custom-outline-btn w-full rounded-2xl">Add to Cart</Button>
+            <Button className="w-full rounded-2xl">Buy Now</Button>
           </div>
         </div>
       </div>

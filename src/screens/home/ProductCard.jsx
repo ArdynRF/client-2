@@ -1,15 +1,15 @@
-'use client';
+"use client";
 import { StarIcon } from "@/components/icons";
 import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
-
-const handleProductDetail = ({ productId }) => {
-  window.location.href = `/product/${productId}`;
-};
+import { useRouter } from "next/navigation";
 
 const ProductCard = ({ product }) => {
+  const router = useRouter();
+  const handleProductDetail = () => router.push(`/product/${product.id}`);
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+  console.log(product);
   return (
     <div
       className="bg-white rounded-xl shadow-lg w-full h-full min-h-[400px]"
@@ -34,6 +34,27 @@ const ProductCard = ({ product }) => {
           <p className="text-gray-400 text-md truncate">
             {product?.description}
           </p>
+        </div>
+
+        <div className="grid grid-cols-3 items-center gap-2 py-4">
+          {product?.isActive ? (
+            <div className="col-span-1 border border-gray-300 rounded-xl p-2 text-center bg-green-50 text-green-700">
+              {"Active"}
+            </div>
+          ) : (
+            <div className="col-span-1 border border-gray-300 rounded-xl p-2 text-center bg-gray-100 text-gray-500">
+              Inactive Product
+            </div>
+          )}
+          {product?.isCustomization ? (
+            <div className="col-span-1 border border-gray-300 rounded-xl p-2 text-center bg-green-50 text-green-700">
+              {'Customizable'}
+            </div>
+          ) : (
+            <div className="col-span-1 border border-gray-300 rounded-xl p-2 text-center bg-gray-100 text-gray-500">
+              Inactive Product
+            </div>
+          )}
         </div>
 
         <div className="space-y-0">
@@ -61,9 +82,7 @@ const ProductCard = ({ product }) => {
             className="w-full custom-outline-btn rounded-2xl "
             onClick={() => handleProductDetail({ productId: product.id })}
             text="View Details"
-          >
-            
-          </Button>
+          ></Button>
         </div>
       </div>
     </div>
