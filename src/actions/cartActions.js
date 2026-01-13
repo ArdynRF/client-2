@@ -4,21 +4,106 @@ import { getCustomerData } from "@/actions/authActions";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export async function handleCartItems() {
-  const customer = await getCustomerData();
-  if (!customer) return [];
-  const userId = Number(customer.data.id);
-  console.log(customer)
-  console.log("Fetching cart items for user ID:", userId);
-  const res = await fetch(`${BASE_URL}/api/cart/${userId}`);
+  try {
+    const customer = await getCustomerData();
 
-  if (!res.ok) {
-    console.error("API error:", res.status);
+    // Check if customer exists and has data
+    if (!customer || !customer.data || !customer.data.id) {
+      console.warn("No customer data found");
+      return [];
+    }
+
+    const userId = Number(customer.data.id);
+
+    // Validate userId
+    if (isNaN(userId) || userId <= 0) {
+      console.error("Invalid user ID:", userId);
+      return [];
+    }
+
+    console.log("Fetching cart items for user ID:", userId);
+
+    // Add timeout to fetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    const res = await fetch(`${BASE_URL}/api/cart/${userId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      cache: "no-store", // Untuk data yang selalu fresh
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      console.error("API error:", res.status, res.statusText);
+
+      // Return empty array for 404 (cart might be empty)
+      if (res.status === 404) {
+        return [];
+      }
+
+      return [];
+    }
+
+    const data = await res.json();
+
+    // Validate response data
+    if (!Array.isArray(data)) {
+      console.error("Invalid response format, expected array:", data);
+      return [];
+    }
+
+    console.log(`Successfully fetched ${data.length} cart items`);
+    console.log("Cart items data:", data);
+    return data;
+  } catch (error) {
+    console.error("Error in handleCartItems:", error);
+
+    // Handle specific errors
+    if (error.name === "AbortError") {
+      console.error("Fetch timeout - API took too long to respond");
+    } else if (error instanceof SyntaxError) {
+      console.error("JSON parse error - Invalid response from API");
+    }
+
     return [];
   }
+}
 
-  const text = await res.text();
-  if (!text) return []; 
+// Optional: Function untuk menghapus cache jika diperlukan
+export async function refreshCartItems() {
+  // Force revalidation jika menggunakan cache
+  // revalidatePath('/cart');
+  return await handleCartItems();
+}
 
-  const data = JSON.parse(text);
-  return data;
+// Optional: Function untuk menghitung total cart
+export async function getCartTotal() {
+  const cartItems = await handleCartItems();
+
+  if (!cartItems || cartItems.length === 0) {
+    return {
+      subtotal: 0,
+      itemCount: 0,
+      totalItems: 0,
+    };
+  }
+
+  const subtotal = cartItems.reduce((sum, item) => {
+    return sum + (item.priceTotal || 0);
+  }, 0);
+
+  const totalItems = cartItems.reduce((sum, item) => {
+    return sum + (item.quantity || 0);
+  }, 0);
+
+  return {
+    subtotal,
+    itemCount: cartItems.length,
+    totalItems,
+  };
 }
