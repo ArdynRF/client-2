@@ -8,12 +8,13 @@ export default function ToCartQuantity({
   title = "Add to Cart",
   priceTiers = [],
 }) {
-  const [quantity, setQuantity] = useState(initialData.quantity || 1);
+  const [quantity, setQuantity] = useState(initialData.quantity);
   const [price, setPrice] = useState(initialData.price || 0);
   const [notes, setNotes] = useState(initialData.notes || "");
   const [transactionType, setTransactionType] = useState("negotiate");
   const [fixedPrice, setFixedPrice] = useState(initialData.fixedPrice || 0);
-
+  const sortedTiers = [...priceTiers].sort((a, b) => b.minQty - a.minQty);
+  const moq = 50;
   // Function untuk menghitung fixedPrice berdasarkan quantity dan priceTiers
   const calculateFixedPrice = (qty) => {
     if (priceTiers.length === 0) return 0;
@@ -58,7 +59,6 @@ export default function ToCartQuantity({
     return "";
   };
 
-  // Update fixedPrice saat quantity berubah
   useEffect(() => {
     if (transactionType === "directly") {
       const newFixedPrice = calculateFixedPrice(quantity);
@@ -66,16 +66,15 @@ export default function ToCartQuantity({
     }
   }, [quantity, transactionType, priceTiers]);
 
-  // Update fixedPrice saat modal dibuka atau transactionType berubah
   useEffect(() => {
     if (transactionType === "directly") {
       const newFixedPrice = calculateFixedPrice(quantity);
       setFixedPrice(newFixedPrice);
     } else {
-      // Reset ke initial price untuk negotiate mode
       setPrice(initialData.price || 0);
     }
   }, [transactionType, isOpen]);
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -109,7 +108,8 @@ export default function ToCartQuantity({
 
   const handleQuantityUpdate = (newQuantity) => {
     setQuantity(newQuantity);
-    // FixedPrice akan diupdate oleh useEffect
+    console.log("Quantity updated to:", newQuantity);
+    console.log("Initial quantity:", initialData.quantity);
   };
 
   if (!isOpen) return null;
@@ -212,7 +212,11 @@ export default function ToCartQuantity({
                       onClick={() =>
                         handleQuantityUpdate(Math.max(1, quantity - 1))
                       }
-                      className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                      disabled={quantity < moq} // <-- ini yang penting
+                      className={`w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100
+    ${
+      quantity < moq ? "opacity-50 cursor-not-allowed" : ""
+    }`}
                     >
                       <svg
                         className="w-4 h-4"
@@ -240,7 +244,7 @@ export default function ToCartQuantity({
                         );
                         handleQuantityUpdate(newQty);
                       }}
-                      min="1"
+                      min={moq}
                       className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 text-center"
                       required
                     />

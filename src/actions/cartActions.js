@@ -21,7 +21,6 @@ export async function handleCartItems() {
       return [];
     }
 
-    console.log("Fetching cart items for user ID:", userId);
 
     // Add timeout to fetch
     const controller = new AbortController();
@@ -56,9 +55,7 @@ export async function handleCartItems() {
       console.error("Invalid response format, expected array:", data);
       return [];
     }
-
-    console.log(`Successfully fetched ${data.length} cart items`);
-    console.log("Cart items data:", data);
+ 
     return data;
   } catch (error) {
     console.error("Error in handleCartItems:", error);
@@ -84,7 +81,7 @@ export async function refreshCartItems() {
 // Optional: Function untuk menghitung total cart
 export async function getCartTotal() {
   const cartItems = await handleCartItems();
-  console.log("Calculating cart total for items:", cartItems);
+  
   if (!cartItems || cartItems.length === 0) {
     return {
       subtotal: 0,
@@ -117,7 +114,7 @@ export async function handleRemoveSingleItem(cartId) {
     });
 
     if (response.ok) {
-      console.log(`Item with cart ID ${cartId} removed successfully`);
+  
       return true;
     } else {
       console.error(

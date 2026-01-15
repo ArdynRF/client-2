@@ -9,7 +9,7 @@ const ProductCard = ({ product }) => {
   const router = useRouter();
   const handleProductDetail = () => router.push(`/product/${product.id}`);
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  console.log(product);
+  
   return (
     <div
       className="bg-white rounded-xl shadow-lg w-full h-full min-h-[400px]"

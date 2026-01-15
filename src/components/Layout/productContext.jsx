@@ -9,13 +9,13 @@ export const ProductProvider = ({ children }) => {
 
   const addProductToCart = (newProduct) => {
     setCartItems((prevProducts) => [...prevProducts, newProduct]);
-    console.log(cartItems);
+    
   };
   const removeProductFromCart = (productId) => {
     setCartItems((prevProducts) =>
       prevProducts.filter((product) => product.id !== productId)
     );
-    console.log(cartItems);
+    
   };
 
   return (
