@@ -6,12 +6,14 @@ import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import { handleRemoveSingleItem } from "@/actions/cartActions";
+import { loadCart } from "@//screens/cart";
 
 export default function CartList({
   cartItem,
   isSelected,
   onSelect,
   onUpdateQuantity,
+  onRemoveSuccess,
 }) {
   const [quantity, setQuantity] = useState(cartItem.quantity || 1);
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -27,9 +29,28 @@ export default function CartList({
     }
   };
 
-  const handleRemove = async () => {
-    await handleRemoveSingleItem(cartItem.id);
-  };
+
+
+// Atau jika pakai handleRemoveSingleItem function:
+const handleRemove = async () => {
+  if (!confirm("Are you sure you want to remove this item from cart?")) {
+    return;
+  }
+
+  try {
+    const success = await handleRemoveSingleItem(cartItem.id);
+    if (onRemoveSuccess) {
+      alert("Item removed successfully.");
+      onRemoveSuccess();
+      
+    } else {
+      alert("Failed to remove item. Please try again.");
+    }
+  } catch (error) {
+    console.error("Failed to remove cart item:", error);
+    alert("Error removing item. Please try again.");
+  }
+};
 
   return (
     <div

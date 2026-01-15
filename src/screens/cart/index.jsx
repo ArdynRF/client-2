@@ -12,23 +12,23 @@ export default function Cart() {
   const [selectedItems, setSelectedItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load cart items
-  useEffect(() => {
-    async function loadCart() {
-      try {
-        const items = await handleCartItems();
-        console.log("Loaded cart items:", items);
-        setCartItems(items || []);
-      } catch (error) {
-        console.error("Failed to load cart:", error);
-        setCartItems([]);
-      } finally {
-        setLoading(false);
-      }
+  const loadCart = async () => {
+    try {
+      const items = await handleCartItems();
+      console.log("Loaded cart items:", items);
+      setCartItems(items || []);
+    } catch (error) {
+      console.error("Failed to load cart:", error);
+      setCartItems([]);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Initial load
+  useEffect(() => {
     loadCart();
   }, []);
-
   // Handle select/deselect all
   const handleSelectAll = () => {
     if (selectedItems.length === cartItems.length) {
@@ -166,6 +166,7 @@ export default function Cart() {
                 onUpdateQuantity={(newQuantity) =>
                   handleUpdateQuantity(item.id, newQuantity)
                 }
+                onRemoveSuccess={loadCart}
               />
             ))}
           </div>

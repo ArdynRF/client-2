@@ -1,3 +1,8 @@
+import Negotiate from "@/screens/Negotiate";
 export default function NegotiatePage() {
-  return <div className="negotiate-page">Negotiate Page</div>;
+  return (
+    <>
+      <Negotiate />
+    </>
+  )
 }
