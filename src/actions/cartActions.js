@@ -84,7 +84,7 @@ export async function refreshCartItems() {
 // Optional: Function untuk menghitung total cart
 export async function getCartTotal() {
   const cartItems = await handleCartItems();
-
+  console.log("Calculating cart total for items:", cartItems);
   if (!cartItems || cartItems.length === 0) {
     return {
       subtotal: 0,
@@ -106,4 +106,28 @@ export async function getCartTotal() {
     itemCount: cartItems.length,
     totalItems,
   };
+}
+
+export async function handleRemoveSingleItem(cartId) {
+  try {
+    const response = await fetch(`${BASE_URL}/api/cart/`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cartIds: [cartId] }),
+    });
+
+    if (response.ok) {
+      console.log(`Item with cart ID ${cartId} removed successfully`);
+      return true;
+    } else {
+      console.error(
+        `Failed to remove item with cart ID ${cartId}:`,
+        response.statusText
+      );
+      return false;
+    }
+  } catch (error) {
+    console.error(`Error removing item with cart ID ${cartId}:`, error);
+    return false;
+  }
 }

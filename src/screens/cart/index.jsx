@@ -66,7 +66,7 @@ export default function Cart() {
 
     try {
       // TODO: Implement API call to remove items
-      const response = await fetch("/api/cart", {
+      const response = await fetch("/api/cart/", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cartIds: selectedItems }),
@@ -106,7 +106,7 @@ export default function Cart() {
   if (loading) {
     return (
       <div className="my-10">
-        <h1 className="text-3xl font-semibold">Keranjang Pertanyaan</h1>
+        <h1 className="text-3xl font-semibold">Cart</h1>
         <div className="text-center mt-10 text-gray-500">Loading...</div>
       </div>
     );
@@ -114,11 +114,11 @@ export default function Cart() {
 
   return (
     <div className="my-10 max-w-7xl mx-auto px-4">
-      <h1 className="text-3xl font-semibold mb-6">Keranjang Pertanyaan</h1>
+      <h1 className="text-3xl font-semibold mb-6">Cart List</h1>
 
       {!cartItems || cartItems.length === 0 ? (
         <div className="text-center mt-10 text-gray-500 bg-white rounded-lg p-8 shadow-sm">
-          <div className="text-lg mb-4">Keranjang Anda kosong.</div>
+          <div className="text-lg mb-4">Your cart is empty.</div>
           <Link href="/products">
             <Button className="bg-blue-600 hover:bg-blue-700 text-white">
               Browse Products
@@ -145,18 +145,9 @@ export default function Cart() {
                   htmlFor="select-all"
                   className="ml-2 text-sm font-medium text-gray-900"
                 >
-                  Pilih Semua ({selectedItems.length}/{cartItems.length})
+                  Select All ({selectedItems.length}/{cartItems.length})
                 </label>
               </div>
-
-              {selectedItems.length > 0 && (
-                <Button
-                  onClick={handleRemoveItems}
-                  className="bg-red-100 text-red-700 hover:bg-red-200 border border-red-300"
-                >
-                  Hapus ({selectedItems.length})
-                </Button>
-              )}
             </div>
 
             <div className="text-sm text-gray-600">
@@ -181,14 +172,14 @@ export default function Cart() {
 
           {/* Cart Summary Fixed */}
           <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
-            <h2 className="text-xl font-semibold mb-4">Ringkasan Pesanan</h2>
+            <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal</span>
                 <span>Rp {subtotal.toLocaleString("id-ID")}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Ongkos Kirim</span>
+                <span className="text-gray-600">Shipping cost</span>
                 <span>Rp {shipping.toLocaleString("id-ID")}</span>
               </div>
               <div className="border-t pt-3 flex justify-between text-lg font-semibold">
@@ -201,7 +192,7 @@ export default function Cart() {
               className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white py-3"
               disabled={selectedItems.length === 0}
             >
-              Lanjut ke Pembayaran ({selectedItems.length} item)
+              Continue To Payment ({selectedItems.length} item)
             </Button>
           </div>
         </>
