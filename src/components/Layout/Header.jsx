@@ -7,12 +7,15 @@ import Input from "../ui/Input";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getCustomerData, logoutUser } from "@/actions/authActions";
 import { getCartTotal } from "@/actions/cartActions";
+import { getNegotiationsByUserId } from "@/actions/negotiationActions";
 
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const dropdownRef = useRef(null);
-  const [totalItems, setTotalItems] = useState(0);
+  const [totalCarts, setTotalCarts] = useState(0);
+  const [totalNegotiations, setTotalNegotiations] = useState(0);
+  const [userId, setUserId] = useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentParams = new URLSearchParams(searchParams.toString());
@@ -58,17 +61,25 @@ const Header = () => {
   useEffect(() => {
     const fetchData = async () => {
       const res = await getCustomerData();
-      console.log(res.data);
+      setUserId(res.data.id);
     };
-    fetchData();
+    
+    
 
     const getTotalCartItems = async () => {
       const res = await getCartTotal();
-      console.log("Cart Total:", res);
-      setTotalItems(res.itemCount || 0);
+      setTotalCarts(res.itemCount || 0);
     };
 
+
+    const getTotalNegotiationItems = async () => {
+      const res = await getNegotiationsByUserId(userId)
+      setTotalNegotiations(res.length || 0);
+    }
+
+    fetchData();
     getTotalCartItems();
+    getTotalNegotiationItems();
   });
 
   return (
@@ -92,7 +103,7 @@ const Header = () => {
                 <Link href="/negotiate">
                 <div className="relative">
                   <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
-                    0
+                    {totalNegotiations}
                   </div>
                   <NegotiateIcon className="w-7 h-7" />
                 </div>
@@ -100,7 +111,7 @@ const Header = () => {
               <Link href="/cart">
                 <div className="relative">
                   <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
-                    {totalItems}
+                    {totalCarts}
                   </div>
                   <CartIcon className="w-7 h-7" />
                 </div>
