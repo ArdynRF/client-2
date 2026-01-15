@@ -12,7 +12,7 @@ const Product = ({ product }) => {
     image,
     description,
     priceTiers = [],
-    currentStock,
+    colorStocks = [],
     productType,
   } = product;
 
@@ -70,11 +70,11 @@ const Product = ({ product }) => {
 
           {/* Harga dan Stock */}
           <div className="my-7 space-y-1">
-            <h6 className="text-sm font-medium text-green-600">
-              Special Price
-            </h6>
+            <h3 className="text-sm font-medium text-gray-600">
+              MOQ: {product.moq} pcs
+            </h3>
             <div className="text-gray-500 font-medium">
-              {currentStock} item left
+              {colorStocks.reduce((total, color) => total + color.stock, 0)} item left
             </div>
           </div>
 
@@ -134,7 +134,7 @@ const Product = ({ product }) => {
             ["Pattern", product.patterns?.map((p) => p.name).join(", ") || "-"],
             [
               "Color",
-              product.colorStocks?.map((c) => c.name).join(", ") || "-",
+              product.colorStocks?.map((c) => c.color).join(", ") || "-",
             ],
           ].map(([label, value], i) => (
             <div
