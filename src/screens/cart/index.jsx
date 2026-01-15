@@ -15,7 +15,7 @@ export default function Cart() {
   const loadCart = async () => {
     try {
       const items = await handleCartItems();
-      console.log("Loaded cart items:", items);
+      
       setCartItems(items || []);
     } catch (error) {
       console.error("Failed to load cart:", error);

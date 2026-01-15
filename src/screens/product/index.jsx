@@ -26,12 +26,12 @@ const Product = ({ product }) => {
 
   function checkPrice() {
     priceTiers.sort((a, b) => a.minQty - b.minQty);
-    console.log(priceTiers);
+    
     return priceTiers[0]?.unitPrice || 0;
   }
 
   function handleQuantityChange(quantity) {
-    console.log("Quantity changed to:", quantity);
+    
     let applicableTier = priceTiers
       .filter((tier) => quantity >= tier.minQty)
       .sort((a, b) => b.minQty - a.minQty)[0];

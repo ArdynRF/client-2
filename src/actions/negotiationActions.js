@@ -6,7 +6,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export async function getNegotiationsByUserId(userId) {
   try {
-    console.log("Fetching negotiations for user ID:", userId);
+    
 
     // Validate userId
     const id = Number(userId);
@@ -34,7 +34,7 @@ export async function getNegotiationsByUserId(userId) {
     if (!res.ok) {
       // Handle 404 specially (user might have no negotiations)
       if (res.status === 404) {
-        console.log("No negotiations found for user ID:", id);
+        
         return [];
       }
 
@@ -43,7 +43,7 @@ export async function getNegotiationsByUserId(userId) {
     }
 
     const data = await res.json();
-    console.log("Negotiations API response data:", data);
+    
 
     // Validate response data
     if (!data || !data.success) {
@@ -59,10 +59,8 @@ export async function getNegotiationsByUserId(userId) {
       return [];
     }
 
-    console.log(
-      `Successfully fetched ${negotiations.length} negotiations for user ID:`,
-      id
-    );
+    
+   
     return negotiations;
   } catch (error) {
     console.error("Failed to fetch negotiations:", error);
@@ -84,7 +82,7 @@ export async function handleDeleteNegotiation(negotiationIds) {
 
     
 
-  console.log("Deleting negotiations with IDs:", idsArray);
+  
   
 
     const response = await fetch(`${BASE_URL}/api/negotiate`, {
@@ -95,7 +93,7 @@ export async function handleDeleteNegotiation(negotiationIds) {
       body: JSON.stringify({ negotiationIds: idsArray }),
     });
 
-    console.log(response)
+    
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -107,7 +105,7 @@ export async function handleDeleteNegotiation(negotiationIds) {
     }
 
     const result = await response.json();
-    console.log("Delete success:", result);
+    
 
     return {
       success: true,

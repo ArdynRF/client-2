@@ -21,7 +21,7 @@ export default function NegotiationsPage() {
        const customer = await getCustomerData();
       const userId = customer.data.id;
       const items = await getNegotiationsByUserId(userId);
-      console.log("Loaded negotiate items:", items);
+      
       setAllNegotiations(items || []);
     } catch (error) {
       console.error("Failed to load negotiations:", error);
