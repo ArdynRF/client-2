@@ -14,7 +14,7 @@ export default function ToCartQuantity({
   const [transactionType, setTransactionType] = useState("negotiate");
   const [fixedPrice, setFixedPrice] = useState(initialData.fixedPrice || 0);
   const sortedTiers = [...priceTiers].sort((a, b) => b.minQty - a.minQty);
-  const moq = 50;
+  const moq = initialData.quantity;
   // Function untuk menghitung fixedPrice berdasarkan quantity dan priceTiers
   const calculateFixedPrice = (qty) => {
     if (priceTiers.length === 0) return 0;
