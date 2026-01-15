@@ -1,17 +1,18 @@
 "use client";
 
-import { SearchIcon, UserIcon, CartIcon } from "@/app/icons";
+import { SearchIcon, UserIcon, CartIcon, NegotiateIcon } from "@/app/icons";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import Input from "../ui/Input";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getCustomerData, logoutUser } from "@/actions/authActions";
+import { getCartTotal } from "@/actions/cartActions";
 
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const dropdownRef = useRef(null);
-
+  const [totalItems, setTotalItems] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentParams = new URLSearchParams(searchParams.toString());
@@ -60,6 +61,14 @@ const Header = () => {
       console.log(res.data);
     };
     fetchData();
+
+    const getTotalCartItems = async () => {
+      const res = await getCartTotal();
+      console.log("Cart Total:", res);
+      setTotalItems(res.itemCount || 0);
+    };
+
+    getTotalCartItems();
   });
 
   return (
@@ -80,10 +89,18 @@ const Header = () => {
 
           <div className="relative" ref={dropdownRef}>
             <div className="flex gap-3">
-              <Link href="/cart">
+                <Link href="/negotiate">
                 <div className="relative">
                   <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
                     0
+                  </div>
+                  <NegotiateIcon className="w-7 h-7" />
+                </div>
+              </Link>
+              <Link href="/cart">
+                <div className="relative">
+                  <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
+                    {totalItems}
                   </div>
                   <CartIcon className="w-7 h-7" />
                 </div>
@@ -100,7 +117,10 @@ const Header = () => {
                 >
                   My Wishlist
                 </Link>
-                <button className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100 w-full text-left" onClick={logoutUser}>
+                <button
+                  className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100 w-full text-left"
+                  onClick={logoutUser}
+                >
                   Logout
                 </button>
               </div>

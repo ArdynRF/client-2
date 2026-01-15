@@ -5,6 +5,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
+import { handleRemoveSingleItem } from "@/actions/cartActions";
 
 export default function CartList({
   cartItem,
@@ -27,18 +28,7 @@ export default function CartList({
   };
 
   const handleRemove = async () => {
-    try {
-      const response = await fetch(`/api/cart/${cartItem.id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        alert("Item removed successfully");
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error("Failed to remove item:", error);
-    }
+    await handleRemoveSingleItem(cartItem.id);
   };
 
   return (
@@ -96,6 +86,11 @@ export default function CartList({
                 >
                   {isDirectBuy ? "Direct Buy" : "Negotiate"}
                 </span>
+                {!isDirectBuy && (
+                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                    Approved
+                  </span>
+                )}
 
                 {cartItem.color && (
                   <div className="flex items-center text-sm text-gray-600">
@@ -142,21 +137,13 @@ export default function CartList({
                 / pcs
               </div>
 
-              <div className="flex space-x-2 mt-3">
+              <div className="mt-3 items-end">
                 <Button
                   onClick={handleRemove}
                   className="px-3 py-1.5 text-sm bg-red-50 text-red-600 hover:bg-red-100"
                 >
-                  Hapus
+                  Delete
                 </Button>
-
-                {!isDirectBuy && (
-                  <Link href={`/negotiate/${cartItem.productId}`}>
-                    <Button className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700">
-                      Negosiasi
-                    </Button>
-                  </Link>
-                )}
               </div>
             </div>
           </div>
