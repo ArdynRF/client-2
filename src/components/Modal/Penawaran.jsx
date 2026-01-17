@@ -8,13 +8,33 @@ export default function ToCartQuantity({
   title = "Add to Cart",
   priceTiers = [],
 }) {
-  const [quantity, setQuantity] = useState(initialData.quantity);
+  const [quantity, setQuantity] = useState(initialData.quantity || 1);
   const [price, setPrice] = useState(initialData.price || 0);
   const [notes, setNotes] = useState(initialData.notes || "");
   const [transactionType, setTransactionType] = useState("negotiate");
   const [fixedPrice, setFixedPrice] = useState(initialData.fixedPrice || 0);
+  const [selectedColorId, setSelectedColorId] = useState("");
+  const [selectedColor, setSelectedColor] = useState(null);
+
+  const colorStocks = initialData.colorStocks || [];
+  const moq = initialData.moq || 1;
   const sortedTiers = [...priceTiers].sort((a, b) => b.minQty - a.minQty);
-  const moq = initialData.quantity;
+
+  // Handler untuk perubahan warna
+  const handleColorChange = (colorId) => {
+    setSelectedColorId(colorId);
+
+    const selected = colorStocks.find(
+      (color) => color.id === parseInt(colorId)
+    );
+    setSelectedColor(selected);
+  };
+
+  // Fungsi untuk mendapatkan warna yang dipilih
+  const getSelectedColor = () => {
+    return colorStocks.find((color) => color.id === parseInt(selectedColorId));
+  };
+
   // Function untuk menghitung fixedPrice berdasarkan quantity dan priceTiers
   const calculateFixedPrice = (qty) => {
     if (priceTiers.length === 0) return 0;
@@ -59,6 +79,17 @@ export default function ToCartQuantity({
     return "";
   };
 
+  // Fungsi untuk mendapatkan status stok
+  const getStockStatus = (stock) => {
+    if (stock > 10)
+      return { label: "Tersedia", class: "text-green-600 bg-green-50" };
+    if (stock > 5)
+      return { label: "Terbatas", class: "text-yellow-600 bg-yellow-50" };
+    if (stock > 0)
+      return { label: "Hampir Habis", class: "text-orange-600 bg-orange-50" };
+    return { label: "Habis", class: "text-red-600 bg-red-50" };
+  };
+
   useEffect(() => {
     if (transactionType === "directly") {
       const newFixedPrice = calculateFixedPrice(quantity);
@@ -75,9 +106,25 @@ export default function ToCartQuantity({
     }
   }, [transactionType, isOpen]);
 
+  // Auto select first available color on component mount
+  useEffect(() => {
+    if (colorStocks.length > 0 && !selectedColorId) {
+      const availableColor = colorStocks.find((color) => color.stock > 0);
+      if (availableColor) {
+        setSelectedColorId(availableColor.id.toString());
+        setSelectedColor(availableColor);
+      }
+    }
+  }, [colorStocks]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Validate color selection
+    if (!selectedColorId) {
+      alert("Please select a color");
+      return;
+    }
 
     if (transactionType === "directly") {
       onSubmit({
@@ -85,6 +132,8 @@ export default function ToCartQuantity({
         price: fixedPrice,
         notes,
         transactionType: "directly",
+        colorId: parseInt(selectedColorId),
+        colorData: selectedColor,
       });
     } else {
       onSubmit({
@@ -92,6 +141,8 @@ export default function ToCartQuantity({
         price,
         notes,
         transactionType: "negotiate",
+        colorId: parseInt(selectedColorId),
+        colorData: selectedColor,
       });
     }
 
@@ -104,12 +155,21 @@ export default function ToCartQuantity({
     setNotes(initialData.notes || "");
     setFixedPrice(initialData.fixedPrice || 0);
     setTransactionType("negotiate");
+    setSelectedColorId("");
+    setSelectedColor(null);
+
+    // Reset to first available color
+    if (colorStocks.length > 0) {
+      const availableColor = colorStocks.find((color) => color.stock > 0);
+      if (availableColor) {
+        setSelectedColorId(availableColor.id.toString());
+        setSelectedColor(availableColor);
+      }
+    }
   };
 
   const handleQuantityUpdate = (newQuantity) => {
     setQuantity(newQuantity);
-    console.log("Quantity updated to:", newQuantity);
-    console.log("Initial quantity:", initialData.quantity);
   };
 
   if (!isOpen) return null;
@@ -198,6 +258,99 @@ export default function ToCartQuantity({
             {/* Modal Body */}
             <form onSubmit={handleSubmit}>
               <div className="p-4 md:p-5 space-y-4">
+                {/* Color Selection */}
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-900">
+                    Pilih Warna
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none text-gray-900"
+                      value={selectedColorId || ""}
+                      onChange={(e) => handleColorChange(e.target.value)}
+                      required
+                    >
+                      {colorStocks.length === 0 ? (
+                        <option value="">Tidak ada warna tersedia</option>
+                      ) : (
+                        <>
+                          <option value="" disabled>-- Pilih warna --</option>
+                          {colorStocks.map((colorStock) => {
+                            const stockStatus = getStockStatus(
+                              colorStock.stock
+                            );
+                            const isAvailable = colorStock.stock > 0;
+
+                            return (
+                              <option
+                                key={colorStock.id}
+                                value={colorStock.id}
+                                disabled={!isAvailable}
+                                className={`
+                                  ${
+                                    isAvailable
+                                      ? "text-gray-900"
+                                      : "text-gray-400"
+                                  }
+                                  ${!isAvailable && "bg-gray-100"}
+                                `}
+                              >
+                                {colorStock.color}{" "}
+                                {!isAvailable
+                                  ? `(${stockStatus.label})`
+                                  : `- ${colorStock.stock} pcs`}
+                              </option>
+                            );
+                          })}
+                        </>
+                      )}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <svg
+                        className="w-5 h-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Preview warna yang dipilih */}
+                  {selectedColor && (
+                    <div className="mt-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-900">
+                          Warna dipilih:
+                        </h4>
+                        <span
+                          className={`text-xs font-medium px-2 py-1 rounded-full ${
+                            getStockStatus(selectedColor.stock).class
+                          }`}
+                        >
+                          {getStockStatus(selectedColor.stock).label}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {selectedColor.color}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Stok: {selectedColor.stock} pcs
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Quantity Input */}
                 <div>
                   <label
@@ -207,40 +360,14 @@ export default function ToCartQuantity({
                     Quantity
                   </label>
                   <div className="flex items-center space-x-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleQuantityUpdate(Math.max(1, quantity - 1))
-                      }
-                      disabled={quantity < moq} // <-- ini yang penting
-                      className={`w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100
-    ${
-      quantity < moq ? "opacity-50 cursor-not-allowed" : ""
-    }`}
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M20 12H4"
-                        />
-                      </svg>
-                    </button>
-
                     <input
                       type="number"
                       id="quantity"
                       value={quantity}
                       onChange={(e) => {
                         const newQty = Math.max(
-                          1,
-                          parseInt(e.target.value) || 1
+                          moq,
+                          parseInt(e.target.value) || moq
                         );
                         handleQuantityUpdate(newQty);
                       }}
@@ -248,27 +375,12 @@ export default function ToCartQuantity({
                       className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 text-center"
                       required
                     />
-
-                    <button
-                      type="button"
-                      onClick={() => handleQuantityUpdate(quantity + 1)}
-                      className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
-                    </button>
                   </div>
+                  {moq > 1 && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Minimum order quantity: {moq} items
+                    </p>
+                  )}
                 </div>
 
                 {/* Price Input - Hanya untuk negotiate */}
@@ -398,7 +510,7 @@ export default function ToCartQuantity({
               <div className="flex items-center justify-end p-4 md:p-5 border-t border-gray-200 rounded-b space-x-3">
                 <button
                   type="button"
-                  onClick={handleReset}
+                  onClick={onClose}
                   className="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700"
                 >
                   Cancel
@@ -410,6 +522,7 @@ export default function ToCartQuantity({
                       ? "bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300"
                       : "bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
                   }`}
+                  disabled={!selectedColorId}
                 >
                   {transactionType === "directly" ? "Buy Now" : "Submit Offer"}
                 </button>
