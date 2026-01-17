@@ -11,6 +11,7 @@ export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  
 
   const loadCart = async () => {
     try {
