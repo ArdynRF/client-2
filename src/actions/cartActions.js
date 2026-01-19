@@ -21,7 +21,6 @@ export async function handleCartItems() {
       return [];
     }
 
-
     // Add timeout to fetch
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -55,7 +54,7 @@ export async function handleCartItems() {
       console.error("Invalid response format, expected array:", data);
       return [];
     }
- 
+
     return data;
   } catch (error) {
     console.error("Error in handleCartItems:", error);
@@ -81,7 +80,7 @@ export async function refreshCartItems() {
 // Optional: Function untuk menghitung total cart
 export async function getCartTotal() {
   const cartItems = await handleCartItems();
-  
+
   if (!cartItems || cartItems.length === 0) {
     return {
       subtotal: 0,
@@ -114,7 +113,6 @@ export async function handleRemoveSingleItem(cartId) {
     });
 
     if (response.ok) {
-  
       return true;
     } else {
       console.error(
@@ -128,3 +126,117 @@ export async function handleRemoveSingleItem(cartId) {
     return false;
   }
 }
+
+export async function handleToCartAction(data) {
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+  console.log("Adding to cart with data:", data);
+  const customer = await getCustomerData();
+
+  // Check if customer exists and has data
+  if (!customer || !customer.data || !customer.data.id) {
+    console.warn("No customer data found");
+    return [];
+  }
+
+  const userId = Number(customer.data.id);
+  console.log("User ID for cart action:", userId);
+  try {
+    const response = await fetch(`${BASE_URL}/api/cart`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        productId: data.productId,
+        colorId: data.colorId,
+        quantity: Number(data.quantity),
+        price: data.price,
+        transactionType: data.transactionType,
+        notes: data.notes,
+        userId: userId,
+        colorName: data.colorName,
+      }),
+    });
+
+    console.log("Cart API response status:", response);
+
+    if (!response.ok) {
+      throw new Error(`Failed to add to cart: ${response}`);
+    }
+
+    const result = await response.json();
+    console.log("Cart response:", result);
+
+    return result;
+  } catch (error) {
+    console.error("Error in handleToCartAction:", error);
+    throw error;
+  }
+}
+
+export async function handleCartCheckout(itemIds) {
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+  console.log("Handling cart checkout for item IDs:", itemIds);
+
+  const customer = await getCustomerData();
+  if (!customer || !customer.data || !customer.data.id) {
+    return {
+      success: false,
+      message: "No customer data found",
+      data: [],
+    };
+  }
+  const userId = Number(customer.data.id);
+  // console.log("User ID for cart checkout:", userId);
+
+
+  if (!itemIds || itemIds.length === 0) {
+    return {
+      success: false,
+      message: "No item IDs provided",
+      data: [],
+    };
+  }
+
+  try {
+
+    const response = await fetch(
+      `${BASE_URL}/api/cartbyid?user_id=${userId}&item_ids=${itemIds.join(
+        ","
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("Cart checkout API response status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Cart checkout API error:", errorText);
+      throw new Error(
+        `Failed to fetch cart items: ${response.status} ${errorText}`
+      );
+    }
+
+    const result = await response.json();
+    console.log("Cart checkout response:", result);
+
+    return {
+      success: true,
+      message: "Cart items fetched successfully",
+      data: result.data || result || [],
+    };
+  } catch (error) {
+    console.error("Error in handleCartCheckout:", error);
+    return {
+      success: false,
+      message: error.message || "Failed to fetch cart items",
+      data: [],
+    };
+  }
+}
+
