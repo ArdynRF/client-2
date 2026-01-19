@@ -126,27 +126,34 @@ export default function ToCartQuantity({
       return;
     }
 
-    if (transactionType === "directly") {
-      onSubmit({
-        quantity,
-        price: fixedPrice,
-        notes,
-        transactionType: "directly",
-        colorId: parseInt(selectedColorId),
-        colorData: selectedColor,
-      });
+    if (quantity > selectedColor.stock) {
+      alert("Quantity exceeds available stock for the selected color.");
     } else {
-      onSubmit({
-        quantity,
-        price,
-        notes,
-        transactionType: "negotiate",
-        colorId: parseInt(selectedColorId),
-        colorData: selectedColor,
-      });
+      if (transactionType === "directly") {
+        onSubmit({
+          quantity,
+          price: fixedPrice,
+          notes,
+          transactionType: "directly",
+          colorId: parseInt(selectedColorId),
+          colorData: selectedColor,
+          productId : initialData.productId,
+          colorName : selectedColor.color
+        });
+      } else {
+        onSubmit({
+          quantity,
+          price,
+          notes,
+          transactionType: "negotiate",
+          colorId: parseInt(selectedColorId),
+          colorData: selectedColor,
+          productId : initialData.productId,
+          colorName : selectedColor.color
+        });
+      }
+      onClose();
     }
-
-    onClose();
   };
 
   const handleReset = () => {
@@ -274,7 +281,9 @@ export default function ToCartQuantity({
                         <option value="">Tidak ada warna tersedia</option>
                       ) : (
                         <>
-                          <option value="" disabled>-- Pilih warna --</option>
+                          <option value="" disabled>
+                            -- Pilih warna --
+                          </option>
                           {colorStocks.map((colorStock) => {
                             const stockStatus = getStockStatus(
                               colorStock.stock

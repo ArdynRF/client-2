@@ -3,6 +3,7 @@ import Button from "@/components/ui/Button";
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import ToCartQuantity from "@/components/modal/Penawaran";
+import { handleToCartAction } from "@/actions/cartActions";
 
 // Kamu bisa ubah props di sini agar data produk masuk dari luar
 const Product = ({ product }) => {
@@ -23,13 +24,23 @@ const Product = ({ product }) => {
   const [isOutOfStock, setIsOutOfStock] = useState(false);
   const [totalStock, setTotalStock] = useState(0);
   const [hasAvailableColors, setHasAvailableColors] = useState(false);
-
-  const handleAddToCart = (data) => {
-    console.log("Add to cart data:", data);
-    // Implement your add to cart logic here
-  };
-
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const price = checkPrice();
+
+  const handleAddToCart = async (data) => {
+    setIsAddingToCart(true);
+    try {
+      await handleToCartAction(data);
+      setIsModalOpen(false);
+      // Optional: Show success message or update cart count
+      alert("Item added to cart successfully!");
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      alert("Failed to add item to cart. Please try again.");
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
 
   function checkPrice() {
     priceTiers.sort((a, b) => a.minQty - b.minQty);
@@ -163,9 +174,7 @@ const Product = ({ product }) => {
             >
               {isOutOfStock ? "Stock Habis" : "Add to Cart"}
             </Button>
-            <Button
-              className={`w-full rounded-2xl hover:bg-blue-600`}
-            >
+            <Button className={`w-full rounded-2xl hover:bg-blue-600`}>
               {isOutOfStock ? "Pre Order" : "Buy Now"}
             </Button>
           </div>
@@ -259,6 +268,7 @@ const Product = ({ product }) => {
           fixedPrice: fixedPrice,
           colorStocks: colorStocks,
           moq: moq,
+          productId: product.id,
         }}
         priceTiers={priceTiers}
       />

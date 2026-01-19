@@ -6,17 +6,19 @@ import CartList from "@/components/ui/CartList";
 import { handleCartItems } from "@/actions/cartActions";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
+  const router = useRouter();
 
   const loadCart = async () => {
     try {
       const items = await handleCartItems();
-      
+
       setCartItems(items || []);
     } catch (error) {
       console.error("Failed to load cart:", error);
@@ -59,6 +61,12 @@ export default function Cart() {
         item.id === itemId ? { ...item, quantity: newQuantity } : item
       )
     );
+  };
+
+  const handleContinueToCheckout = () => {
+    // Redirect to checkout page with selected item IDs as query params
+    const query = selectedItems.map((id) => `itemIds=${id}`).join("&");
+    router.push(`/cartcheckout?${query}`);
   };
 
   // Handle remove items
@@ -193,6 +201,7 @@ export default function Cart() {
             <Button
               className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white py-3"
               disabled={selectedItems.length === 0}
+              onClick={handleContinueToCheckout} // TANPA TANDA KURUNG ()
             >
               Continue To Payment ({selectedItems.length} item)
             </Button>
