@@ -129,7 +129,7 @@ export async function handleRemoveSingleItem(cartId) {
 
 export async function handleToCartAction(data) {
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  console.log("Adding to cart with data:", data);
+  
   const customer = await getCustomerData();
 
   // Check if customer exists and has data
@@ -139,7 +139,7 @@ export async function handleToCartAction(data) {
   }
 
   const userId = Number(customer.data.id);
-  console.log("User ID for cart action:", userId);
+  
   try {
     const response = await fetch(`${BASE_URL}/api/cart`, {
       method: "POST",
@@ -158,14 +158,14 @@ export async function handleToCartAction(data) {
       }),
     });
 
-    console.log("Cart API response status:", response);
+    
 
     if (!response.ok) {
       throw new Error(`Failed to add to cart: ${response}`);
     }
 
     const result = await response.json();
-    console.log("Cart response:", result);
+    
 
     return result;
   } catch (error) {
@@ -176,7 +176,7 @@ export async function handleToCartAction(data) {
 
 export async function handleCartCheckout(itemIds) {
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  console.log("Handling cart checkout for item IDs:", itemIds);
+  
 
   const customer = await getCustomerData();
   if (!customer || !customer.data || !customer.data.id) {
@@ -187,8 +187,7 @@ export async function handleCartCheckout(itemIds) {
     };
   }
   const userId = Number(customer.data.id);
-  // console.log("User ID for cart checkout:", userId);
-
+  // 
 
   if (!itemIds || itemIds.length === 0) {
     return {
@@ -199,7 +198,6 @@ export async function handleCartCheckout(itemIds) {
   }
 
   try {
-
     const response = await fetch(
       `${BASE_URL}/api/cartbyid?user_id=${userId}&item_ids=${itemIds.join(
         ","
@@ -212,7 +210,7 @@ export async function handleCartCheckout(itemIds) {
       }
     );
 
-    console.log("Cart checkout API response status:", response.status);
+    
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -223,7 +221,7 @@ export async function handleCartCheckout(itemIds) {
     }
 
     const result = await response.json();
-    console.log("Cart checkout response:", result);
+    
 
     return {
       success: true,
@@ -240,3 +238,26 @@ export async function handleCartCheckout(itemIds) {
   }
 }
 
+export async function getUserAddress() {
+  const customer = await getCustomerData();
+  if (!customer || !customer.data || !customer.data.id) {
+    return null;
+  }
+  const userId = Number(customer.data.id);
+
+  try {
+    const response = await fetch(`${BASE_URL}/api/addresses/${userId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+    const data = await response.json();
+    console.log("Fetched user address:", data);
+    return data;
+  } catch (error) {
+    console.error("Error fetching user address:", error);
+    return null;
+  }
+}

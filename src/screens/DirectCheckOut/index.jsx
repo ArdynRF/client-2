@@ -3,11 +3,13 @@ import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { handleCartCheckout } from "@/actions/cartActions";
+import { getUserAddress } from "@/actions/cartActions";
 
-export default function COFromCart() {
-  // State untuk data checkout
-  const [selectedItems, setSelectedItems] = useState([]);
+export default function DirectCheckoutPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [checkoutData, setCheckoutData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -15,10 +17,6 @@ export default function COFromCart() {
   const [shippingMethods, setShippingMethods] = useState([]);
   const [selectedShippingMethod, setSelectedShippingMethod] = useState("");
   const [shippingCost, setShippingCost] = useState(15000);
-  const [isLoading, setIsLoading] = useState(true);
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [itemIds, setItemIds] = useState([]);
   const [error, setError] = useState(null);
 
   // Data dummy untuk alamat, payment methods, dan shipping methods
@@ -90,89 +88,70 @@ export default function COFromCart() {
     },
   ];
 
-  // Hitung total berdasarkan data dari API dan shipping method
-  const calculateTotals = () => {
-    const subtotal = selectedItems.reduce(
-      (sum, item) => sum + (item.priceTotal || 0),
-      0
-    );
-    
-    // Cari harga shipping method yang dipilih
-    const selectedShipping = shippingMethods.find(
-      (method) => method.id === selectedShippingMethod
-    );
-    const currentShippingCost = selectedShipping?.price || shippingCost;
-    
-    const total = subtotal + currentShippingCost;
-    return { subtotal, shippingCost: currentShippingCost, total };
-  };
-
-  const { subtotal, shippingCost: currentShippingCost, total } = calculateTotals();
-
-  // Load data dari API
+  // Load data dari URL
   useEffect(() => {
-    const ids = searchParams.getAll("itemIds");
-    console.log("Item IDs from URL:", ids);
+    const dataParam = searchParams.get("data");
+    console.log("Data from URL:", dataParam);
 
-    if (ids.length > 0) {
-      setItemIds(ids);
-      fetchItemsFromAPI(ids);
-    } else {
-      router.push("/cart");
-    }
-  }, [searchParams, router]);
-
-  const fetchItemsFromAPI = async (ids) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await handleCartCheckout(ids);
-      console.log("Fetched items for checkout:", result);
-
-      if (result.success && result.data.length > 0) {
-        setSelectedItems(result.data);
+    if (dataParam) {
+      try {
+        const decodedData = JSON.parse(decodeURIComponent(dataParam));
+        setCheckoutData(decodedData);
 
         // Set data alamat, payment, dan shipping methods
-        setAddresses(dummyAddresses);
+        // setAddresses(dummyAddresses);
         const primaryAddress = dummyAddresses.find((addr) => addr.isPrimary);
         setSelectedAddress(primaryAddress || dummyAddresses[0]);
         setPaymentMethods(dummyPaymentMethods);
         setSelectedPaymentMethod("bank_transfer");
-        
+
         // Set shipping methods
         setShippingMethods(dummyShippingMethods);
         // Default pilih reguler delivery
         setSelectedShippingMethod("reguler");
-      } else {
-        setError(result.message || "Tidak ada item yang ditemukan");
-        if (result.data.length === 0) {
-          router.push("/cart");
-        }
+        setShippingCost(dummyShippingMethods[2].price);
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error parsing checkout data:", error);
+        setError("Data checkout tidak valid");
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching cart items:", error);
-      setError("Gagal memuat data checkout");
-    } finally {
-      setIsLoading(false);
+    } else {
+      setError("Tidak ada data checkout");
+      setLoading(false);
     }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const apiAddresses = async () => {
+      await getUserAddress();
+    };
+
+    apiAddresses();
+  });
+
+  // Hitung total
+  const calculateTotals = () => {
+    if (!checkoutData) return { subtotal: 0, shippingCost: 0, total: 0 };
+
+    const subtotal = checkoutData.totalPrice || 0;
+    const selectedShipping = shippingMethods.find(
+      (method) => method.id === selectedShippingMethod
+    );
+    const currentShippingCost = selectedShipping?.price || shippingCost;
+    const total = subtotal + currentShippingCost;
+
+    return { subtotal, shippingCost: currentShippingCost, total };
   };
+
+  const {
+    subtotal,
+    shippingCost: currentShippingCost,
+    total,
+  } = calculateTotals();
 
   // Handler functions
-  const handleRemoveItem = (cartId) => {
-    const updatedItems = selectedItems.filter((item) => item.cartId !== cartId);
-    setSelectedItems(updatedItems);
-
-    // Update URL dengan itemIds yang baru
-    const updatedIds = updatedItems.map((item) => item.cartId.toString());
-    if (updatedIds.length > 0) {
-      const query = updatedIds.map((id) => `itemIds=${id}`).join("&");
-      router.push(`/cartcheckout?${query}`);
-    } else {
-      router.push("/cart");
-    }
-  };
-
   const handleSelectAddress = (address) => {
     setSelectedAddress(address);
   };
@@ -184,6 +163,10 @@ export default function COFromCart() {
 
   const handleShippingMethodChange = (methodId) => {
     setSelectedShippingMethod(methodId);
+    const selectedMethod = shippingMethods.find((m) => m.id === methodId);
+    if (selectedMethod) {
+      setShippingCost(selectedMethod.price);
+    }
   };
 
   const handleCheckout = () => {
@@ -192,7 +175,7 @@ export default function COFromCart() {
       alert("Silakan pilih metode pengiriman");
       return;
     }
-    
+
     if (!selectedPaymentMethod) {
       alert("Silakan pilih metode pembayaran");
       return;
@@ -203,29 +186,28 @@ export default function COFromCart() {
     );
 
     const orderData = {
-      items: selectedItems,
+      checkoutData,
       address: selectedAddress,
       paymentMethod: selectedPaymentMethod,
       shippingMethod: selectedShipping,
       subtotal,
       shippingCost: currentShippingCost,
       total,
-      itemIds: selectedItems.map((item) => item.cartId),
     };
 
-    console.log("Checkout data:", orderData);
+    console.log("Direct Checkout data:", orderData);
 
     // Simpan data ke localStorage untuk halaman berikutnya
-    localStorage.setItem("checkoutData", JSON.stringify(orderData));
+    localStorage.setItem("directCheckoutData", JSON.stringify(orderData));
 
     // Redirect ke halaman konfirmasi pembayaran
     alert("Pesanan berhasil diproses! Lanjut ke pembayaran...");
     router.push("/payment-confirmation");
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Memuat data checkout...</p>
@@ -234,24 +216,40 @@ export default function COFromCart() {
     );
   }
 
-  if (error) {
+  if (error || !checkoutData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900">
             Terjadi Kesalahan
           </h2>
-          <p className="text-gray-600 mt-2">{error}</p>
+          <p className="text-gray-600 mt-2">
+            {error || "Data tidak ditemukan"}
+          </p>
           <Button
             className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => router.push("/cart")}
+            onClick={() => router.push("/")}
           >
-            Kembali ke Cart
+            Kembali ke Beranda
           </Button>
         </div>
       </div>
     );
   }
+
+  const {
+    productName,
+    quantity,
+    unitPrice,
+    totalPrice,
+    status,
+    color,
+    notes,
+    moq,
+    productImage,
+    productType,
+    isOutOfStock,
+  } = checkoutData;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -259,16 +257,146 @@ export default function COFromCart() {
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-3xl font-bold text-gray-900">
+                Direct Checkout
+              </h1>
+              <span
+                className={`px-3 py-1 text-sm font-medium rounded-full ${
+                  status === "Buy Now"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-yellow-100 text-yellow-800"
+                }`}
+              >
+                {status}
+              </span>
+            </div>
             <p className="text-gray-600 mt-2">
-              Lengkapi informasi untuk menyelesaikan pesanan (
-              {selectedItems.length} item)
+              Checkout langsung untuk 1 produk
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Alamat, Pengiriman, dan Metode Pembayaran */}
             <div className="lg:col-span-2 space-y-8">
+              {/* Product Summary Card */}
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Ringkasan Produk
+                </h2>
+                <div className="flex items-start space-x-4">
+                  <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                    {productImage ? (
+                      <Image
+                        src={`${
+                          process.env.NEXT_PUBLIC_BASE_URL || ""
+                        }/${productImage}`}
+                        alt={productName}
+                        width={96}
+                        height={96}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                        <span className="text-gray-500 text-xs">IMG</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between">
+                      <div>
+                        <h3 className="font-medium text-gray-900 text-lg">
+                          {productName}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {productType}
+                        </p>
+                        <div className="flex items-center space-x-4 mt-2">
+                          <span className="text-sm text-gray-500">
+                            Warna: {color || "-"}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            Quantity: {quantity}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            MOQ: {moq}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-blue-600">
+                          Rp {(quantity * unitPrice).toLocaleString("id-ID")}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Rp {unitPrice?.toLocaleString("id-ID")} × {quantity}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    {notes && (
+                      <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-sm font-medium text-gray-700 mb-1">
+                          Catatan:
+                        </p>
+                        <p className="text-sm text-gray-600">{notes}</p>
+                      </div>
+                    )}
+
+                    {/* Stock Status */}
+                    <div
+                      className={`mt-4 p-3 rounded-lg border ${
+                        isOutOfStock
+                          ? "bg-yellow-50 border-yellow-200"
+                          : "bg-green-50 border-green-200"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <svg
+                          className={`w-5 h-5 ${
+                            isOutOfStock ? "text-yellow-600" : "text-green-600"
+                          }`}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          {isOutOfStock ? (
+                            <path
+                              fillRule="evenodd"
+                              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                              clipRule="evenodd"
+                            />
+                          ) : (
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          )}
+                        </svg>
+                        <span
+                          className={`font-medium ${
+                            isOutOfStock ? "text-yellow-700" : "text-green-700"
+                          }`}
+                        >
+                          {isOutOfStock
+                            ? "Pre Order - Stock akan diinformasikan"
+                            : "Ready Stock - Siap dikirim"}
+                        </span>
+                      </div>
+                      <p
+                        className={`text-sm mt-1 ${
+                          isOutOfStock ? "text-yellow-600" : "text-green-600"
+                        }`}
+                      >
+                        {isOutOfStock
+                          ? "Produk ini sedang dalam status pre-order. Pengiriman akan dilakukan setelah stock tersedia."
+                          : "Produk tersedia dan siap dikirim sesuai metode pengiriman yang dipilih."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Section: Alamat Pengiriman */}
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="flex justify-between items-center mb-6">
@@ -384,8 +512,8 @@ export default function COFromCart() {
                 {/* Shipping Note */}
                 <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-sm text-yellow-800">
-                    ⚠️ Pilih metode pengiriman sesuai kebutuhan. Instant Delivery hanya
-                    tersedia untuk area tertentu.
+                    ⚠️ Pilih metode pengiriman sesuai kebutuhan. Instant
+                    Delivery hanya tersedia untuk area tertentu.
                   </p>
                 </div>
               </div>
@@ -458,88 +586,34 @@ export default function COFromCart() {
                   Ringkasan Pesanan
                 </h2>
 
-                {/* Items List */}
-                <div className="space-y-4 mb-6 max-h-96 overflow-y-auto pr-2">
-                  {selectedItems.map((item) => (
-                    <div
-                      key={item.cartId}
-                      className="flex items-start space-x-4 pb-4 border-b border-gray-100"
-                    >
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                        {item.product?.image ? (
-                          <Image
-                            src={`${process.env.NEXT_PUBLIC_BASE_URL}/${item.product.image}`}
-                            alt={item.product.name}
-                            width={64}
-                            height={64}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                            <span className="text-gray-500 text-xs">IMG</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <div>
-                            <h3 className="font-medium text-gray-900 line-clamp-1">
-                              {item.product?.name || "Unknown Product"}
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              Warna: {item.color || "-"}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              Quantity: {item.quantity}
-                            </p>
-                            {item.product?.moq && (
-                              <p className="text-xs text-gray-400">
-                                MOQ: {item.product.moq}
-                              </p>
-                            )}
-                          </div>
-                          {/* <button
-                            onClick={() => handleRemoveItem(item.cartId)}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button> */}
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <div className="flex items-center space-x-2">
-                            {/* Quantity tidak bisa diubah */}
-                            <span className=" text-center bg-gray-100 px-2 py-1 rounded">
-                              {item.quantity}
-                            </span>
-                          </div>
-                          <span className="font-medium text-gray-900">
-                            Rp {item.priceTotal?.toLocaleString("id-ID")}
-                          </span>
-                        </div>
-                      </div>
+                {/* Order Summary */}
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between items-center pb-3 border-b border-gray-200">
+                    <div>
+                      <h3 className="font-medium text-gray-900">
+                        {productName}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {quantity} item × Rp{" "}
+                        {unitPrice?.toLocaleString("id-ID")}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Warna: {color || "-"}
+                      </p>
                     </div>
-                  ))}
+                    <span className="font-medium text-gray-900">
+                      Rp {totalPrice?.toLocaleString("id-ID")}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Price Summary */}
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-gray-600">
-                    <span>Subtotal ({selectedItems.length} item)</span>
+                    <span>Subtotal (1 item)</span>
                     <span>Rp {subtotal.toLocaleString("id-ID")}</span>
                   </div>
-                  
+
                   {/* Shipping Method Info */}
                   {selectedShippingMethod && (
                     <div className="border-t border-gray-200 pt-3 mt-3">
@@ -548,17 +622,21 @@ export default function COFromCart() {
                           Pengiriman:
                         </span>
                         <span className="text-sm text-gray-600">
-                          {shippingMethods.find(m => m.id === selectedShippingMethod)?.name || "-"}
+                          {shippingMethods.find(
+                            (m) => m.id === selectedShippingMethod
+                          )?.name || "-"}
                         </span>
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="flex justify-between text-gray-600">
                     <span>Biaya Pengiriman</span>
-                    <span>Rp {currentShippingCost.toLocaleString("id-ID")}</span>
+                    <span>
+                      Rp {currentShippingCost.toLocaleString("id-ID")}
+                    </span>
                   </div>
-                  
+
                   <div className="border-t border-gray-200 pt-3">
                     <div className="flex justify-between font-semibold text-lg">
                       <span>Total</span>
@@ -567,6 +645,35 @@ export default function COFromCart() {
                       </span>
                     </div>
                   </div>
+                </div>
+
+                {/* Order Status Info */}
+                <div
+                  className={`mb-6 p-4 rounded-lg border ${
+                    isOutOfStock
+                      ? "bg-yellow-50 border-yellow-200"
+                      : "bg-green-50 border-green-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-900">
+                      Status Pesanan:
+                    </span>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        isOutOfStock
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
+                      {status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {isOutOfStock
+                      ? "Pesanan akan diproses setelah stok tersedia"
+                      : "Pesanan akan diproses segera setelah pembayaran"}
+                  </p>
                 </div>
 
                 {/* Shipping Info */}
@@ -579,13 +686,21 @@ export default function COFromCart() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Metode:</span>
                         <span className="font-medium">
-                          {shippingMethods.find(m => m.id === selectedShippingMethod)?.name}
+                          {
+                            shippingMethods.find(
+                              (m) => m.id === selectedShippingMethod
+                            )?.name
+                          }
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Estimasi:</span>
                         <span>
-                          {shippingMethods.find(m => m.id === selectedShippingMethod)?.estimatedDays}
+                          {
+                            shippingMethods.find(
+                              (m) => m.id === selectedShippingMethod
+                            )?.estimatedDays
+                          }
                         </span>
                       </div>
                       <div className="border-t border-gray-200 pt-2 mt-2">
@@ -621,11 +736,15 @@ export default function COFromCart() {
 
                 {/* Checkout Button */}
                 <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-medium"
+                  className={`w-full text-white py-3 text-lg font-medium ${
+                    isOutOfStock
+                      ? "bg-yellow-600 hover:bg-yellow-700"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
                   onClick={handleCheckout}
-                  disabled={selectedItems.length === 0 || !selectedShippingMethod || !selectedPaymentMethod}
+                  disabled={!selectedShippingMethod || !selectedPaymentMethod}
                 >
-                  Bayar Sekarang
+                  {isOutOfStock ? "Konfirmasi Pre Order" : "Bayar Sekarang"}
                 </Button>
 
                 {/* Security Info */}
@@ -644,6 +763,16 @@ export default function COFromCart() {
                     </svg>
                     <span>Transaksi aman dan terenkripsi</span>
                   </div>
+                </div>
+
+                {/* Cancel Button */}
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => router.back()}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Batalkan dan kembali
+                  </button>
                 </div>
               </div>
             </div>
