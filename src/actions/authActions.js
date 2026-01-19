@@ -113,3 +113,4 @@ export async function logoutUser() {
   await deleteCookie("customer_jwt_token");
   redirect("/login");
 }
+

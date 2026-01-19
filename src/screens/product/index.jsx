@@ -3,11 +3,13 @@ import Button from "@/components/ui/Button";
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import ToCartQuantity from "@/components/modal/Penawaran";
+import BuyNowModal from "@/components/modal/BuyNowModal"; 
 import { handleToCartAction } from "@/actions/cartActions";
+import { useRouter } from "next/navigation";
 
-// Kamu bisa ubah props di sini agar data produk masuk dari luar
 const Product = ({ product }) => {
   const {
+    id,
     name,
     image,
     description,
@@ -15,24 +17,77 @@ const Product = ({ product }) => {
     colorStocks = [],
     productType,
     moq,
+    currentStock,
+    weight,
+    width,
+    technics = [],
+    styles = [],
+    patterns = [],
   } = product;
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+  const router = useRouter();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBuyNowModalOpen, setIsBuyNowModalOpen] = useState(false);
   const [fixedPrice, setFixedPrice] = useState(checkPrice());
   const [isOutOfStock, setIsOutOfStock] = useState(false);
   const [totalStock, setTotalStock] = useState(0);
   const [hasAvailableColors, setHasAvailableColors] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [checkoutStatus, setCheckoutStatus] = useState("Buy Now");
   const price = checkPrice();
+
+  
+  function checkPrice() {
+    priceTiers.sort((a, b) => a.minQty - b.minQty);
+    return priceTiers[0]?.unitPrice || 0;
+  }
+
+  function calculatePriceByQuantity(quantity) {
+    if (!priceTiers.length) return 0;
+
+    
+    const sortedTiers = [...priceTiers].sort((a, b) => b.minQty - a.minQty);
+
+    
+    const applicableTier = sortedTiers.find((tier) => quantity >= tier.minQty);
+
+    return applicableTier
+      ? applicableTier.unitPrice
+      : sortedTiers[sortedTiers.length - 1].unitPrice;
+  }
+
+  function handleQuantityChange(quantity) {
+    const newPrice = calculatePriceByQuantity(quantity);
+    setFixedPrice(newPrice);
+  }
+
+  
+  useEffect(() => {
+    
+    const total = colorStocks.reduce((total, color) => total + color.stock, 0);
+    setTotalStock(total);
+
+    
+    const available = colorStocks.some((color) => color.stock >= moq);
+    setHasAvailableColors(available);
+
+    
+    const outOfStock =
+      colorStocks.every((color) => color.stock < moq) || total === 0;
+    setIsOutOfStock(outOfStock);
+
+    if (outOfStock) {
+      setCheckoutStatus("Pre Order");
+    }
+  }, [colorStocks, moq]);
 
   const handleAddToCart = async (data) => {
     setIsAddingToCart(true);
     try {
       await handleToCartAction(data);
       setIsModalOpen(false);
-      // Optional: Show success message or update cart count
       alert("Item added to cart successfully!");
     } catch (error) {
       console.error("Error adding to cart:", error);
@@ -42,38 +97,41 @@ const Product = ({ product }) => {
     }
   };
 
-  function checkPrice() {
-    priceTiers.sort((a, b) => a.minQty - b.minQty);
-    return priceTiers[0]?.unitPrice || 0;
-  }
+  
+  const handleDirectCheckout = (status, quantity, color = null, notes = "") => {
+    const selectedPrice = calculatePriceByQuantity(quantity);
+    const totalPrice = selectedPrice * quantity;
 
-  function handleQuantityChange(quantity) {
-    let applicableTier = priceTiers
-      .filter((tier) => quantity >= tier.minQty)
-      .sort((a, b) => b.minQty - a.minQty)[0];
+    
+    const checkoutData = {
+      productId: id,
+      productName: name,
+      quantity: quantity,
+      unitPrice: selectedPrice,
+      totalPrice: totalPrice,
+      status: status, 
+      color: color,
+      notes: notes,
+      moq: moq,
+      isOutOfStock: isOutOfStock,
+      productImage: image,
+      productType: productType?.name,
+      
+      productDetails: {
+        weight: weight,
+        width: width,
+        technics: technics.map((t) => t.name),
+        styles: styles.map((s) => s.name),
+        patterns: patterns.map((p) => p.name),
+      },
+    };
 
-    if (applicableTier) {
-      setFixedPrice(applicableTier.unitPrice);
-    } else {
-      setFixedPrice(priceTiers[0]?.unitPrice || 0);
-    }
-  }
+    
+    const encodedData = encodeURIComponent(JSON.stringify(checkoutData));
 
-  // Calculate stock availability
-  useEffect(() => {
-    // Calculate total stock
-    const total = colorStocks.reduce((total, color) => total + color.stock, 0);
-    setTotalStock(total);
-
-    // Check if any color has stock >= MOQ
-    const available = colorStocks.some((color) => color.stock >= moq);
-    setHasAvailableColors(available);
-
-    // Check if product is out of stock
-    const outOfStock =
-      colorStocks.every((color) => color.stock < moq) || total === 0;
-    setIsOutOfStock(outOfStock);
-  }, [colorStocks, moq]);
+    
+    router.push(`/directcheckout?data=${encodedData}`);
+  };
 
   return (
     <>
@@ -174,7 +232,15 @@ const Product = ({ product }) => {
             >
               {isOutOfStock ? "Stock Habis" : "Add to Cart"}
             </Button>
-            <Button className={`w-full rounded-2xl hover:bg-blue-600`}>
+
+            <Button
+              className={`w-full rounded-2xl ${
+                isOutOfStock
+                  ? "bg-yellow-500 hover:bg-yellow-600"
+                  : "bg-blue-500 hover:bg-blue-600"
+              } text-white`}
+              onClick={() => setIsBuyNowModalOpen(true)}
+            >
               {isOutOfStock ? "Pre Order" : "Buy Now"}
             </Button>
           </div>
@@ -226,20 +292,16 @@ const Product = ({ product }) => {
         <div className="border-t border-gray-300 divide-y divide-gray-300 text-gray-700 text-md">
           {/* Baris detail */}
           {[
-            ["Nama Barang", product.name],
-            ["Product Type", product.productType?.name ?? "-"],
-            ["Description", product.description ?? "-"],
-            ["Current Stock", product.currentStock ?? "-"],
-            ["Weight", product.weight ?? "-"],
-            ["Width", product.width ?? "-"],
-            ["Yarn Number", product.yarnNumber ?? "-"],
-            ["Technic", product.technics?.map((t) => t.name).join(", ") || "-"],
-            ["Style", product.styles?.map((s) => s.name).join(", ") || "-"],
-            ["Pattern", product.patterns?.map((p) => p.name).join(", ") || "-"],
-            [
-              "Color",
-              product.colorStocks?.map((c) => c.color).join(", ") || "-",
-            ],
+            ["Nama Barang", name],
+            ["Product Type", productType?.name ?? "-"],
+            ["Description", description ?? "-"],
+            ["Current Stock", currentStock ?? "-"],
+            ["Weight", weight ?? "-"],
+            ["Width", width ?? "-"],
+            ["Technic", technics?.map((t) => t.name).join(", ") || "-"],
+            ["Style", styles?.map((s) => s.name).join(", ") || "-"],
+            ["Pattern", patterns?.map((p) => p.name).join(", ") || "-"],
+            ["Color", colorStocks?.map((c) => c.color).join(", ") || "-"],
             ["MOQ", `${moq} pcs`],
             ["Available Stock", `${totalStock} pcs`],
             ["Stock Status", isOutOfStock ? "Habis" : "Tersedia"],
@@ -257,6 +319,7 @@ const Product = ({ product }) => {
         </div>
       </div>
 
+      {/* Modal Add to Cart */}
       <ToCartQuantity
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -268,9 +331,29 @@ const Product = ({ product }) => {
           fixedPrice: fixedPrice,
           colorStocks: colorStocks,
           moq: moq,
-          productId: product.id,
+          productId: id,
         }}
         priceTiers={priceTiers}
+      />
+
+      {/* Modal Buy Now / Pre Order */}
+      <BuyNowModal
+        isOpen={isBuyNowModalOpen}
+        onClose={() => setIsBuyNowModalOpen(false)}
+        onSubmit={(data) => {
+          const status = isOutOfStock ? "Pre Order" : "Buy Now";
+          handleDirectCheckout(status, data.quantity, data.color, data.notes);
+        }}
+        initialData={{
+          quantity: moq,
+          price: price,
+          colorStocks: colorStocks,
+          moq: moq,
+          isOutOfStock: isOutOfStock,
+          productName: name,
+        }}
+        priceTiers={priceTiers}
+        calculatePrice={calculatePriceByQuantity}
       />
     </>
   );
