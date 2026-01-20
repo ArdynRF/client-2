@@ -18,8 +18,9 @@ const Product = ({ product }) => {
     colorStocks = [],
     productType,
     moq,
-    sample_price, // Ambil samplePrice dari product
+    sample_price, 
     currentStock,
+    sampleProducts = [], 
     weight,
     width,
     technics = [],
@@ -418,6 +419,7 @@ const Product = ({ product }) => {
         }}
         initialData={{
           colorStocks: colorStocks,
+          sampleProducts: sampleProducts,
           isOutOfStock: isOutOfStock,
           productName: name,
           samplePrice: sample_price, // Kirim harga sample ke modal
