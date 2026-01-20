@@ -13,11 +13,11 @@ export default function SampleOrderModal({
   const [selectedColorId, setSelectedColorId] = useState("");
   const [selectedColor, setSelectedColor] = useState(null);
 
-  const colorStocks = initialData.colorStocks || [];
+  const colorStocks = initialData.sampleProducts || [];
   const isOutOfStock = initialData.isOutOfStock || false;
   const productName = initialData.productName || "";
   const samplePrice = initialData.samplePrice || 0; // Harga sample
-  const maxSampleQty = 5; // Maksimal 5 untuk sample
+  const [maxSampleQty, setMaxSampleQty] = useState(null);
 
   const handleColorChange = (colorId) => {
     setSelectedColorId(colorId);
@@ -25,17 +25,21 @@ export default function SampleOrderModal({
       (color) => color.id === parseInt(colorId)
     );
     setSelectedColor(selected);
+    setMaxSampleQty(selected ? selected.stock_sample : null);
   };
 
   useEffect(() => {
     if (isOpen && colorStocks.length > 0 && !selectedColorId) {
-      const availableColor = colorStocks.find((color) => color.stock > 0);
+      const availableColor = colorStocks.find((color) => color.stock_sample > 0);
       if (availableColor) {
         setSelectedColorId(availableColor.id.toString());
         setSelectedColor(availableColor);
+        setMaxSampleQty(availableColor.stock_sample);
       } else if (colorStocks.length > 0) {
         setSelectedColorId(colorStocks[0].id.toString());
         setSelectedColor(colorStocks[0]);
+        setMaxSampleQty(colorStocks[0] ? colorStocks[0].stock_sample : null);
+
       }
     }
   }, [isOpen, colorStocks, selectedColorId]);
@@ -53,7 +57,7 @@ export default function SampleOrderModal({
       return;
     }
 
-    if (!isOutOfStock && selectedColor && quantity > selectedColor.stock) {
+    if (!isOutOfStock && selectedColor && quantity > selectedColor.stock_sample) {
       alert("Jumlah melebihi stok yang tersedia untuk warna yang dipilih.");
       return;
     }
@@ -64,7 +68,7 @@ export default function SampleOrderModal({
       notes,
       colorId: parseInt(selectedColorId),
       colorData: selectedColor,
-      colorName: selectedColor?.color || "",
+      colorName: selectedColor?.color_sample || "",
       status: "Sample Order",
       orderType: "sample",
       isSample: true,
@@ -158,7 +162,7 @@ export default function SampleOrderModal({
                         <option value="">-- Pilih warna (opsional) --</option>
                         {colorStocks.map((colorStock) => {
                           const isAvailable =
-                            isOutOfStock || colorStock.stock > 0;
+                            isOutOfStock || colorStock.stock_sample > 0;
 
                           return (
                             <option
@@ -174,10 +178,10 @@ export default function SampleOrderModal({
                                 ${!isAvailable && "bg-gray-100"}
                               `}
                             >
-                              {colorStock.color}{" "}
+                              {colorStock.color_sample}{" "}
                               {!isAvailable
                                 ? "(Habis)"
-                                : `- ${colorStock.stock} pcs`}
+                                : `- ${colorStock.stock_sample} pcs`}
                             </option>
                           );
                         })}
