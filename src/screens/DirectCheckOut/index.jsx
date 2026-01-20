@@ -272,6 +272,8 @@ export default function DirectCheckoutPage() {
                 className={`px-3 py-1 text-sm font-medium rounded-full ${
                   status === "Buy Now"
                     ? "bg-blue-100 text-blue-800"
+                    : status === "Sample Order"
+                    ? "bg-purple-100 text-purple-700"
                     : "bg-yellow-100 text-yellow-800"
                 }`}
               >
@@ -655,9 +657,7 @@ export default function DirectCheckoutPage() {
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Total Tax</span>
-                    <span>
-                      Rp {currentTaxCost.toLocaleString("id-ID")}
-                    </span>
+                    <span>Rp {currentTaxCost.toLocaleString("id-ID")}</span>
                   </div>
 
                   <div className="border-t border-gray-200 pt-3">

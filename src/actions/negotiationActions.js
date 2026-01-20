@@ -6,9 +6,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export async function getNegotiationsByUserId(userId) {
   try {
-    
-
-    // Validate userId
     const id = Number(userId);
     if (isNaN(id) || id <= 0) {
       console.error("Invalid user ID:", userId);
