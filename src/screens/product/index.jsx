@@ -3,7 +3,8 @@ import Button from "@/components/ui/Button";
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import ToCartQuantity from "@/components/modal/Penawaran";
-import BuyNowModal from "@/components/modal/BuyNowModal"; 
+import BuyNowModal from "@/components/modal/BuyNowModal";
+import SampleOrderModal from "@/components/modal/SampleOrderModal"; // Tambahkan modal sample
 import { handleToCartAction } from "@/actions/cartActions";
 import { useRouter } from "next/navigation";
 
@@ -17,6 +18,7 @@ const Product = ({ product }) => {
     colorStocks = [],
     productType,
     moq,
+    sample_price, // Ambil samplePrice dari product
     currentStock,
     weight,
     width,
@@ -30,6 +32,7 @@ const Product = ({ product }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBuyNowModalOpen, setIsBuyNowModalOpen] = useState(false);
+  const [isSampleModalOpen, setIsSampleModalOpen] = useState(false); // State untuk modal sample
   const [fixedPrice, setFixedPrice] = useState(checkPrice());
   const [isOutOfStock, setIsOutOfStock] = useState(false);
   const [totalStock, setTotalStock] = useState(0);
@@ -38,7 +41,9 @@ const Product = ({ product }) => {
   const [checkoutStatus, setCheckoutStatus] = useState("Buy Now");
   const price = checkPrice();
 
-  
+  // Cek apakah ada harga sample
+  const hasSampleOption =  sample_price > 0;
+
   function checkPrice() {
     priceTiers.sort((a, b) => a.minQty - b.minQty);
     return priceTiers[0]?.unitPrice || 0;
@@ -47,10 +52,8 @@ const Product = ({ product }) => {
   function calculatePriceByQuantity(quantity) {
     if (!priceTiers.length) return 0;
 
-    
     const sortedTiers = [...priceTiers].sort((a, b) => b.minQty - a.minQty);
 
-    
     const applicableTier = sortedTiers.find((tier) => quantity >= tier.minQty);
 
     return applicableTier
@@ -63,17 +66,14 @@ const Product = ({ product }) => {
     setFixedPrice(newPrice);
   }
 
-  
+  // Calculate stock availability
   useEffect(() => {
-    
     const total = colorStocks.reduce((total, color) => total + color.stock, 0);
     setTotalStock(total);
 
-    
     const available = colorStocks.some((color) => color.stock >= moq);
     setHasAvailableColors(available);
 
-    
     const outOfStock =
       colorStocks.every((color) => color.stock < moq) || total === 0;
     setIsOutOfStock(outOfStock);
@@ -81,6 +81,8 @@ const Product = ({ product }) => {
     if (outOfStock) {
       setCheckoutStatus("Pre Order");
     }
+
+    console.log(product)
   }, [colorStocks, moq]);
 
   const handleAddToCart = async (data) => {
@@ -97,26 +99,33 @@ const Product = ({ product }) => {
     }
   };
 
-  
   const handleDirectCheckout = (status, quantity, color = null, notes = "") => {
-    const selectedPrice = calculatePriceByQuantity(quantity);
+    let selectedPrice;
+
+    if (status === "Sample Order") {
+      selectedPrice = sample_price; 
+    } else {
+      selectedPrice = calculatePriceByQuantity(quantity); 
+    }
+
     const totalPrice = selectedPrice * quantity;
 
-    
     const checkoutData = {
       productId: id,
       productName: name,
       quantity: quantity,
       unitPrice: selectedPrice,
       totalPrice: totalPrice,
-      status: status, 
-      color: color,
+      status: status,
+      color: color?.color,
       notes: notes,
       moq: moq,
       isOutOfStock: isOutOfStock,
       productImage: image,
       productType: productType?.name,
-      
+      isSampleOrder: status === "Sample Order", 
+      samplePrice: sample_price,
+
       productDetails: {
         weight: weight,
         width: width,
@@ -126,10 +135,7 @@ const Product = ({ product }) => {
       },
     };
 
-    
     const encodedData = encodeURIComponent(JSON.stringify(checkoutData));
-
-    
     router.push(`/directcheckout?data=${encodedData}`);
   };
 
@@ -163,6 +169,24 @@ const Product = ({ product }) => {
             <h3 className="text-sm font-medium text-gray-600">
               MOQ: {moq} pcs
             </h3>
+
+            {/* Tampilkan harga sample jika ada */}
+            {hasSampleOption && (
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-purple-700">
+                    Sample Price:
+                  </span>
+                  <span className="text-lg font-bold text-purple-600">
+                    Rp {sample_price.toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <p className="text-sm text-purple-600 mt-1">
+                  ✓ Order sample untuk pengujian (max 5 pcs)
+                </p>
+              </div>
+            )}
+
             <div className="text-gray-500 font-medium">
               {totalStock > 0 ? `${totalStock} item left` : "Out of Stock"}
             </div>
@@ -219,30 +243,43 @@ const Product = ({ product }) => {
           <p className="text-lg font-semibold">Description</p>
           <p className="text-gray-600">{description}</p>
 
-          {/* Tombol */}
-          <div className="my-7 flex gap-x-5">
-            <Button
-              className={`custom-outline-btn w-full rounded-2xl ${
-                isOutOfStock
-                  ? "opacity-50 cursor-not-allowed hover:bg-gray-100 hover:text-gray-700"
-                  : ""
-              }`}
-              onClick={() => setIsModalOpen(true)}
-              disabled={isOutOfStock}
-            >
-              {isOutOfStock ? "Stock Habis" : "Add to Cart"}
-            </Button>
+          {/* Tombol Section */}
+          <div className="my-7 space-y-3">
+            {/* Tombol utama dalam satu baris */}
+            <div className="flex gap-x-5">
+              <Button
+                className={`custom-outline-btn w-full rounded-2xl ${
+                  isOutOfStock
+                    ? "opacity-50 cursor-not-allowed hover:bg-gray-100 hover:text-gray-700"
+                    : ""
+                }`}
+                onClick={() => setIsModalOpen(true)}
+                disabled={isOutOfStock}
+              >
+                {isOutOfStock ? "Stock Habis" : "Add to Cart"}
+              </Button>
 
-            <Button
-              className={`w-full rounded-2xl ${
-                isOutOfStock
-                  ? "bg-yellow-500 hover:bg-yellow-600"
-                  : "bg-blue-500 hover:bg-blue-600"
-              } text-white`}
-              onClick={() => setIsBuyNowModalOpen(true)}
-            >
-              {isOutOfStock ? "Pre Order" : "Buy Now"}
-            </Button>
+              <Button
+                className={`w-full rounded-2xl ${
+                  isOutOfStock
+                    ? "bg-yellow-500 hover:bg-yellow-600"
+                    : "bg-blue-500 hover:bg-blue-600"
+                } text-white`}
+                onClick={() => setIsBuyNowModalOpen(true)}
+              >
+                {isOutOfStock ? "Pre Order" : "Buy Now"}
+              </Button>
+            </div>
+
+            {/* Tombol Order Sample - hanya muncul jika ada harga sample */}
+            {hasSampleOption && (
+              <Button
+                className="w-full rounded-2xl bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => setIsSampleModalOpen(true)}
+              >
+                Order Sample
+              </Button>
+            )}
           </div>
 
           {/* Additional stock info for each color */}
@@ -305,17 +342,22 @@ const Product = ({ product }) => {
             ["MOQ", `${moq} pcs`],
             ["Available Stock", `${totalStock} pcs`],
             ["Stock Status", isOutOfStock ? "Habis" : "Tersedia"],
-          ].map(([label, value], i) => (
-            <div
-              key={i}
-              className="py-3 flex justify-between items-start border-b border-gray-300"
-            >
-              <div className="w-1/2 pr-4 font-medium border-r border-gray-300">
-                {label}
+            hasSampleOption
+              ? ["Sample Price", `Rp ${sample_price.toLocaleString("id-ID")}`]
+              : null,
+          ]
+            .filter(Boolean)
+            .map(([label, value], i) => (
+              <div
+                key={i}
+                className="py-3 flex justify-between items-start border-b border-gray-300"
+              >
+                <div className="w-1/2 pr-4 font-medium border-r border-gray-300">
+                  {label}
+                </div>
+                <div className="w-1/2 pl-4">{value}</div>
               </div>
-              <div className="w-1/2 pl-4">{value}</div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
 
@@ -342,7 +384,12 @@ const Product = ({ product }) => {
         onClose={() => setIsBuyNowModalOpen(false)}
         onSubmit={(data) => {
           const status = isOutOfStock ? "Pre Order" : "Buy Now";
-          handleDirectCheckout(status, data.quantity, data.color, data.notes);
+          handleDirectCheckout(
+            status,
+            data.quantity,
+            data.colorData,
+            data.notes
+          );
         }}
         initialData={{
           quantity: moq,
@@ -354,6 +401,28 @@ const Product = ({ product }) => {
         }}
         priceTiers={priceTiers}
         calculatePrice={calculatePriceByQuantity}
+      />
+
+      {/* Modal Order Sample */}
+      <SampleOrderModal
+        isOpen={isSampleModalOpen}
+        onClose={() => setIsSampleModalOpen(false)}
+        onSubmit={(data) => {
+          // Kirim dengan status "Sample Order"
+          handleDirectCheckout(
+            "Sample Order",
+            data.quantity,
+            data.colorData,
+            data.notes
+          );
+        }}
+        initialData={{
+          colorStocks: colorStocks,
+          isOutOfStock: isOutOfStock,
+          productName: name,
+          samplePrice: sample_price, // Kirim harga sample ke modal
+        }}
+        title={`Order Sample - ${name}`}
       />
     </>
   );
