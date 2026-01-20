@@ -4,6 +4,7 @@ const { createContext, useContext, useState } = require("react");
 
 const ProductContext = createContext();
 
+
 export const ProductProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
 
