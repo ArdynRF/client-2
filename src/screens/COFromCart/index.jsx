@@ -20,6 +20,7 @@ export default function COFromCart() {
   const router = useRouter();
   const [itemIds, setItemIds] = useState([]);
   const [error, setError] = useState(null);
+  const taxRate = 0.1;
 
   // Data dummy untuk alamat, payment methods, dan shipping methods
   const dummyAddresses = [
@@ -96,19 +97,28 @@ export default function COFromCart() {
       (sum, item) => sum + (item.priceTotal || 0),
       0
     );
-    
+
     // Cari harga shipping method yang dipilih
     const selectedShipping = shippingMethods.find(
       (method) => method.id === selectedShippingMethod
     );
     const currentShippingCost = selectedShipping?.price || shippingCost;
-    
-    const total = subtotal + currentShippingCost;
-    return { subtotal, shippingCost: currentShippingCost, total };
+    const currentTaxCost = Math.round(subtotal * taxRate);
+    const total = subtotal + currentShippingCost + currentTaxCost;
+    return {
+      subtotal,
+      shippingCost: currentShippingCost,
+      total,
+      taxCost: currentTaxCost,
+    };
   };
 
-  const { subtotal, shippingCost: currentShippingCost, total } = calculateTotals();
-
+  const {
+    subtotal,
+    shippingCost: currentShippingCost,
+    total,
+    taxCost: currentTaxCost,
+  } = calculateTotals();
   // Load data dari API
   useEffect(() => {
     const ids = searchParams.getAll("itemIds");
@@ -139,7 +149,7 @@ export default function COFromCart() {
         setSelectedAddress(primaryAddress || dummyAddresses[0]);
         setPaymentMethods(dummyPaymentMethods);
         setSelectedPaymentMethod("bank_transfer");
-        
+
         // Set shipping methods
         setShippingMethods(dummyShippingMethods);
         // Default pilih reguler delivery
@@ -192,7 +202,7 @@ export default function COFromCart() {
       alert("Silakan pilih metode pengiriman");
       return;
     }
-    
+
     if (!selectedPaymentMethod) {
       alert("Silakan pilih metode pembayaran");
       return;
@@ -384,8 +394,8 @@ export default function COFromCart() {
                 {/* Shipping Note */}
                 <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-sm text-yellow-800">
-                    ⚠️ Pilih metode pengiriman sesuai kebutuhan. Instant Delivery hanya
-                    tersedia untuk area tertentu.
+                    ⚠️ Pilih metode pengiriman sesuai kebutuhan. Instant
+                    Delivery hanya tersedia untuk area tertentu.
                   </p>
                 </div>
               </div>
@@ -539,7 +549,7 @@ export default function COFromCart() {
                     <span>Subtotal ({selectedItems.length} item)</span>
                     <span>Rp {subtotal.toLocaleString("id-ID")}</span>
                   </div>
-                  
+
                   {/* Shipping Method Info */}
                   {selectedShippingMethod && (
                     <div className="border-t border-gray-200 pt-3 mt-3">
@@ -548,17 +558,39 @@ export default function COFromCart() {
                           Pengiriman:
                         </span>
                         <span className="text-sm text-gray-600">
-                          {shippingMethods.find(m => m.id === selectedShippingMethod)?.name || "-"}
+                          {shippingMethods.find(
+                            (m) => m.id === selectedShippingMethod
+                          )?.name || "-"}
                         </span>
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="flex justify-between text-gray-600">
                     <span>Biaya Pengiriman</span>
-                    <span>Rp {currentShippingCost.toLocaleString("id-ID")}</span>
+                    <span>
+                      Rp {currentShippingCost.toLocaleString("id-ID")}
+                    </span>
                   </div>
-                  
+
+                  <div className="border-t border-gray-200 pt-3 mt-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Total Tax:
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {Math.round(taxRate * 100)}%
+                      </span>
+                      
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Total Pajak</span>
+                    <span>
+                      Rp {currentTaxCost.toLocaleString("id-ID")}
+                    </span>
+                  </div>
+
                   <div className="border-t border-gray-200 pt-3">
                     <div className="flex justify-between font-semibold text-lg">
                       <span>Total</span>
@@ -579,13 +611,21 @@ export default function COFromCart() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Metode:</span>
                         <span className="font-medium">
-                          {shippingMethods.find(m => m.id === selectedShippingMethod)?.name}
+                          {
+                            shippingMethods.find(
+                              (m) => m.id === selectedShippingMethod
+                            )?.name
+                          }
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Estimasi:</span>
                         <span>
-                          {shippingMethods.find(m => m.id === selectedShippingMethod)?.estimatedDays}
+                          {
+                            shippingMethods.find(
+                              (m) => m.id === selectedShippingMethod
+                            )?.estimatedDays
+                          }
                         </span>
                       </div>
                       <div className="border-t border-gray-200 pt-2 mt-2">
@@ -623,7 +663,11 @@ export default function COFromCart() {
                 <Button
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-medium"
                   onClick={handleCheckout}
-                  disabled={selectedItems.length === 0 || !selectedShippingMethod || !selectedPaymentMethod}
+                  disabled={
+                    selectedItems.length === 0 ||
+                    !selectedShippingMethod ||
+                    !selectedPaymentMethod
+                  }
                 >
                   Bayar Sekarang
                 </Button>

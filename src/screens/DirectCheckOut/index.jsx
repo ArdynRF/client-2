@@ -18,6 +18,7 @@ export default function DirectCheckoutPage() {
   const [selectedShippingMethod, setSelectedShippingMethod] = useState("");
   const [shippingCost, setShippingCost] = useState(15000);
   const [error, setError] = useState(null);
+  const [taxRate, setTaxRate] = useState(0.1); // 10% pajak
 
   // Data dummy untuk alamat, payment methods, dan shipping methods
   const dummyAddresses = [
@@ -140,15 +141,21 @@ export default function DirectCheckoutPage() {
       (method) => method.id === selectedShippingMethod
     );
     const currentShippingCost = selectedShipping?.price || shippingCost;
-    const total = subtotal + currentShippingCost;
-
-    return { subtotal, shippingCost: currentShippingCost, total };
+    const currentTaxCost = Math.round(subtotal * taxRate);
+    const total = subtotal + currentShippingCost + currentTaxCost;
+    return {
+      subtotal,
+      shippingCost: currentShippingCost,
+      total,
+      taxCost: currentTaxCost,
+    };
   };
 
   const {
     subtotal,
     shippingCost: currentShippingCost,
     total,
+    taxCost: currentTaxCost,
   } = calculateTotals();
 
   // Handler functions
@@ -634,6 +641,22 @@ export default function DirectCheckoutPage() {
                     <span>Biaya Pengiriman</span>
                     <span>
                       Rp {currentShippingCost.toLocaleString("id-ID")}
+                    </span>
+                  </div>
+                  <div className="border-t border-gray-200 pt-3 mt-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Tax:
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {Math.round(taxRate * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Total Tax</span>
+                    <span>
+                      Rp {currentTaxCost.toLocaleString("id-ID")}
                     </span>
                   </div>
 
