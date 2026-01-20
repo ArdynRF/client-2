@@ -12,7 +12,7 @@ const ProductCard = ({ product }) => {
   
   return (
     <div
-      className="bg-white rounded-xl shadow-lg w-full h-full min-h-[400px]"
+      className="bg-white rounded-xl shadow-lg w-full h-full min-h-[640px]"
       key={product?.id}
     >
       <Image
@@ -60,7 +60,7 @@ const ProductCard = ({ product }) => {
         <div className="space-y-0">
           <div className="flex justify-between items-center">
             <div className="flex gap-x-3 items-center text-xl font-semibold">
-              <span className="text-gray-500 line-through">${product.mrp}</span>
+              {/* <span className="text-gray-500 line-through">${product.mrp}</span> */}
               <span className="text-2xl">Rp. {product.lowestPrice} - Rp. {product.highestPrice}</span>
             </div>
             <span className="text-gray-400 text-md">
