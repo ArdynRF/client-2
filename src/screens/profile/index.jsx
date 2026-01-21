@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { getUserProfileClient, updateUserProfileClient } from '@/actions/profileAction';
-import { getCustomerData } from "@/actions/authActions";
+import { getCustomerData } from "@/actions/cartActions";
 
 export default function Profile() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [userId, setUserId] = useState(null); // Tambahkan state userId
+    const [userId, setUserId] = useState(null);
     const [userData, setUserData] = useState({
         name: '',
         email: '',
@@ -45,24 +45,31 @@ export default function Profile() {
             const customer = await getCustomerData();
             console.log("Customer data:", customer);
             
-            if (!customer || !customer.data || !customer.data.id) {
+            if (!customer || !customer.data) {
                 throw new Error("No valid customer data received");
             }
             
-            const userId = customer.data.id;
+            const customerData = customer.data;
+            const userId = customerData.id;
             setUserId(userId);
             
             console.log("Fetching profile for user ID:", userId);
-            const items = await getUserProfileClient(userId);
-            console.log("Profile data received:", items);
+            let profileData = {};
             
-            // Set data dengan fallback untuk field yang mungkin undefined
+            try {
+                profileData = await getUserProfileClient(userId) || {};
+                console.log("Profile data received:", profileData);
+            } catch (profileError) {
+                console.log("No profile data found, using customer data only:", profileError);
+            }
+            
+            // Set data dengan mapping yang benar
             setUserData({
-                name: items?.name || customer.data.name || '',
-                email: items?.email || customer.data.email || '',
-                phone: items?.phone || customer.data.phone || '',
-                shippingAddresses: items?.shippingAddresses || [],
-                billingAddresses: items?.billingAddresses || []
+                name: profileData?.name || customerData.name || '',
+                email: profileData?.email || customerData.email || '',
+                phone: profileData?.phone || customerData.phone_number || '', // Perbaikan: phone_number
+                shippingAddresses: profileData?.shippingAddresses || [],
+                billingAddresses: profileData?.billingAddresses || []
             });
         } catch (error) {
             console.error("Failed to load user data:", error);
@@ -337,7 +344,10 @@ export default function Profile() {
                                             onChange={handleInputChange}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                             required
+                                            readOnly
+                                            style={{ backgroundColor: '#f9fafb', cursor: 'not-allowed' }}
                                         />
+                                        <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                                     </div>
                                     
                                     <div>
