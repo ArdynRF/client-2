@@ -6,6 +6,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 export async function handleCartItems() {
   try {
     const customer = await getCustomerData();
+    console.log("Customer data in handleCartItems:", customer);
 
     // Check if customer exists and has data
     if (!customer || !customer.data || !customer.data.id) {
