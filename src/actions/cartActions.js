@@ -129,7 +129,7 @@ export async function handleRemoveSingleItem(cartId) {
 
 export async function handleToCartAction(data) {
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  
+
   const customer = await getCustomerData();
 
   // Check if customer exists and has data
@@ -139,7 +139,7 @@ export async function handleToCartAction(data) {
   }
 
   const userId = Number(customer.data.id);
-  
+
   try {
     const response = await fetch(`${BASE_URL}/api/cart`, {
       method: "POST",
@@ -158,14 +158,11 @@ export async function handleToCartAction(data) {
       }),
     });
 
-    
-
     if (!response.ok) {
       throw new Error(`Failed to add to cart: ${response}`);
     }
 
     const result = await response.json();
-    
 
     return result;
   } catch (error) {
@@ -176,7 +173,6 @@ export async function handleToCartAction(data) {
 
 export async function handleCartCheckout(itemIds) {
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  
 
   const customer = await getCustomerData();
   if (!customer || !customer.data || !customer.data.id) {
@@ -187,7 +183,7 @@ export async function handleCartCheckout(itemIds) {
     };
   }
   const userId = Number(customer.data.id);
-  // 
+  //
 
   if (!itemIds || itemIds.length === 0) {
     return {
@@ -210,8 +206,6 @@ export async function handleCartCheckout(itemIds) {
       }
     );
 
-    
-
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Cart checkout API error:", errorText);
@@ -221,7 +215,6 @@ export async function handleCartCheckout(itemIds) {
     }
 
     const result = await response.json();
-    
 
     return {
       success: true,
@@ -259,5 +252,69 @@ export async function getUserAddress() {
   } catch (error) {
     console.error("Error fetching user address:", error);
     return null;
+  }
+}
+
+export async function handleMoveToCartAction(id) {
+  try {
+    const response = await fetch(`${BASE_URL}/api/negotiate`, {
+      method: "PUT", // Gunakan PUT bukan UPDATE
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ negotiationId: id }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      return result;
+    } else {
+      const errorData = await response.json();
+      console.error("Failed to move negotiation to cart:", errorData.error);
+      return {
+        success: false,
+        error: errorData.error || "Failed to move to cart",
+      };
+    }
+  } catch (error) {
+    console.error("Network error:", error);
+    return {
+      success: false,
+      error: "Network error. Please try again.",
+    };
+  }
+}
+
+export async function handleRenegotiateSubmitAPI(data) {
+  try {
+    const response = await fetch("/api/negotiations/renegotiate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      return {
+        success: true,
+        data: result.data,
+        message: result.message,
+      };
+    } else {
+      const errorData = await response.json();
+      return {
+        success: false,
+        error: errorData.error || "Failed to submit renegotiation",
+        details: errorData.details,
+      };
+    }
+  } catch (error) {
+    console.error("Renegotiate API error:", error);
+    return {
+      success: false,
+      error: "Network error. Please try again.",
+    };
   }
 }

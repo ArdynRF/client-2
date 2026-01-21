@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { handleCartCheckout } from "@/actions/cartActions";
+import ModalPaymentConfirmation from "@/components/Modal/ModalPaymentConfirmation";
 
 export default function COFromCart() {
   // State untuk data checkout
@@ -21,6 +22,10 @@ export default function COFromCart() {
   const [itemIds, setItemIds] = useState([]);
   const [error, setError] = useState(null);
   const taxRate = 0.1;
+
+  // State untuk modal pembayaran
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [checkoutData, setCheckoutData] = useState(null);
 
   // Data dummy untuk alamat, payment methods, dan shipping methods
   const dummyAddresses = [
@@ -119,6 +124,7 @@ export default function COFromCart() {
     total,
     taxCost: currentTaxCost,
   } = calculateTotals();
+
   // Load data dari API
   useEffect(() => {
     const ids = searchParams.getAll("itemIds");
@@ -219,18 +225,54 @@ export default function COFromCart() {
       shippingMethod: selectedShipping,
       subtotal,
       shippingCost: currentShippingCost,
+      tax: currentTaxCost,
       total,
       itemIds: selectedItems.map((item) => item.cartId),
     };
 
     console.log("Checkout data:", orderData);
 
-    // Simpan data ke localStorage untuk halaman berikutnya
-    localStorage.setItem("checkoutData", JSON.stringify(orderData));
+    // Set checkout data and open payment modal
+    setCheckoutData(orderData);
+    setIsPaymentModalOpen(true);
+  };
 
-    // Redirect ke halaman konfirmasi pembayaran
-    alert("Pesanan berhasil diproses! Lanjut ke pembayaran...");
-    router.push("/payment-confirmation");
+  const handleConfirmPayment = async (orderData) => {
+    try {
+      console.log("Payment confirmed, creating order:", orderData);
+
+      // Simpan order ke localStorage untuk order history
+      const existingOrders = JSON.parse(
+        localStorage.getItem("orderHistory") || "[]"
+      );
+      const newOrder = {
+        ...orderData,
+        orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        orderDate: new Date().toISOString(),
+        status: "processing",
+        paymentStatus: "down_payment_paid",
+        downPayment: orderData.total * 0.3,
+        remainingPayment: orderData.total * 0.7,
+      };
+
+      localStorage.setItem(
+        "orderHistory",
+        JSON.stringify([newOrder, ...existingOrders])
+      );
+
+      // Hapus item dari cart (opsional, bisa panggil API)
+      const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
+      const updatedCartItems = cartItems.filter(
+        (item) => !orderData.itemIds.includes(item.id)
+      );
+      localStorage.setItem("cartItems", JSON.stringify(updatedCartItems));
+
+      // Redirect ke order history
+      // router.push("/orders");
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      alert("Terjadi kesalahan saat memproses pembayaran");
+    }
   };
 
   if (isLoading) {
@@ -508,7 +550,7 @@ export default function COFromCart() {
                               </p>
                             )}
                           </div>
-                          {/* <button
+                          <button
                             onClick={() => handleRemoveItem(item.cartId)}
                             className="text-gray-400 hover:text-red-500"
                           >
@@ -525,7 +567,7 @@ export default function COFromCart() {
                                 d="M6 18L18 6M6 6l12 12"
                               />
                             </svg>
-                          </button> */}
+                          </button>
                         </div>
                         <div className="flex justify-between items-center mt-2">
                           <div className="flex items-center space-x-2">
@@ -581,14 +623,11 @@ export default function COFromCart() {
                       <span className="text-sm text-gray-600">
                         {Math.round(taxRate * 100)}%
                       </span>
-                      
                     </div>
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Total Pajak</span>
-                    <span>
-                      Rp {currentTaxCost.toLocaleString("id-ID")}
-                    </span>
+                    <span>Rp {currentTaxCost.toLocaleString("id-ID")}</span>
                   </div>
 
                   <div className="border-t border-gray-200 pt-3">
@@ -641,6 +680,27 @@ export default function COFromCart() {
                   </div>
                 )}
 
+                {/* Down Payment Info */}
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center mb-2">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-green-600 font-bold">30%</span>
+                    </div>
+                    <h4 className="font-medium text-green-900">
+                      Down Payment Required
+                    </h4>
+                  </div>
+                  <p className="text-sm text-green-700 mb-2">
+                    Anda perlu membayar DP 30% sebesar:
+                  </p>
+                  <div className="text-xl font-bold text-green-600">
+                    Rp {(total * 0.3).toLocaleString("id-ID")}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Sisa pembayaran: Rp {(total * 0.7).toLocaleString("id-ID")}
+                  </p>
+                </div>
+
                 {/* Terms and Conditions */}
                 <div className="mb-6">
                   <label className="flex items-start space-x-2">
@@ -661,7 +721,7 @@ export default function COFromCart() {
 
                 {/* Checkout Button */}
                 <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-medium"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg font-medium"
                   onClick={handleCheckout}
                   disabled={
                     selectedItems.length === 0 ||
@@ -669,7 +729,7 @@ export default function COFromCart() {
                     !selectedPaymentMethod
                   }
                 >
-                  Bayar Sekarang
+                  Lanjut ke Pembayaran DP
                 </Button>
 
                 {/* Security Info */}
@@ -694,6 +754,14 @@ export default function COFromCart() {
           </div>
         </div>
       </div>
+
+      {/* Modal Payment Confirmation */}
+      <ModalPaymentConfirmation
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        checkoutData={checkoutData}
+        onConfirmPayment={handleConfirmPayment}
+      />
     </div>
   );
 }
