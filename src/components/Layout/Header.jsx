@@ -123,6 +123,12 @@ const Header = () => {
             {dropdownOpen && (
               <div className="dropdown-menu">
                 <Link
+                  href="/profile"
+                  className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100"
+                >
+                  Profile
+                </Link>
+                <Link
                   href="/"
                   className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100"
                 >
