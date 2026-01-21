@@ -3,17 +3,16 @@
 import { useState, useEffect } from 'react';
 import { getUserProfileClient, updateUserProfileClient } from '@/actions/profileAction';
 import { getCustomerData } from "@/actions/authActions";
-import { getUserAddress } from '@/actions/cartActions'; // Import fungsi untuk mendapatkan alamat
 
 export default function Profile() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [userId, setUserId] = useState(null);
+    const [userId, setUserId] = useState(null); // Tambahkan state userId
     const [userData, setUserData] = useState({
         name: '',
         email: '',
         phone: '',
-        shippingAddresses: [], // Akan diisi dari API
+        shippingAddresses: [],
         billingAddresses: []
     });
     
@@ -39,108 +38,50 @@ export default function Profile() {
         confirmPassword: ''
     });
 
-    // State untuk loading shipping addresses
-    const [loadingAddresses, setLoadingAddresses] = useState(false);
-
-    // Load user data
+    // Pindahkan fungsi loadUserData ke dalam komponen
     const loadUserData = async () => {
         try {
             console.log("Loading user data...");
             const customer = await getCustomerData();
             console.log("Customer data:", customer);
             
-            if (!customer || !customer.data) {
+            if (!customer || !customer.data || !customer.data.id) {
                 throw new Error("No valid customer data received");
             }
             
-            const customerData = customer.data;
-            const userId = customerData.id;
+            const userId = customer.data.id;
             setUserId(userId);
             
             console.log("Fetching profile for user ID:", userId);
-            let profileData = {};
+            const items = await getUserProfileClient(userId);
+            console.log("Profile data received:", items);
             
-            try {
-                profileData = await getUserProfileClient(userId) || {};
-                console.log("Profile data received:", profileData);
-            } catch (profileError) {
-                console.log("No profile data found, using customer data only:", profileError);
-            }
-            
-            // Set data user
-            setUserData(prev => ({
-                ...prev,
-                name: profileData?.name || customerData.name || '',
-                email: profileData?.email || customerData.email || '',
-                phone: profileData?.phone || customerData.phone_number || '',
-                // Shipping addresses akan diisi dari fungsi getShippingAddresses
-                billingAddresses: profileData?.billingAddresses || []
-            }));
+            // Set data dengan fallback untuk field yang mungkin undefined
+            setUserData({
+                name: items?.name || customer.data.name || '',
+                email: items?.email || customer.data.email || '',
+                phone: items?.phone || customer.data.phone || '',
+                shippingAddresses: items?.shippingAddresses || [],
+                billingAddresses: items?.billingAddresses || []
+            });
         } catch (error) {
             console.error("Failed to load user data:", error);
-            setUserData(prev => ({
-                ...prev,
+            // Set data kosong jika terjadi error
+            setUserData({
                 name: '',
                 email: '',
                 phone: '',
                 shippingAddresses: [],
                 billingAddresses: []
-            }));
+            });
         } finally {
             setLoading(false);
         }
     };
 
-    // Load shipping addresses dari API
-    const getShippingAddresses = async () => {
-        try {
-            setLoadingAddresses(true);
-            const response = await getUserAddress();
-            console.log("Shipping addresses fetched:", response);
-            
-            if (response && response.data && Array.isArray(response.data)) {
-
-                const formattedAddresses = response.data.map(address => ({
-                    id: address.id,
-                    label: address.label,
-                    address_line: address.address_line,
-                    city: address.city,
-                    postal_code: address.postal_code,
-                    is_default: address.is_default,
-                    user_id: address.user_id
-                }));
-                
-                setUserData(prev => ({
-                    ...prev,
-                    shippingAddresses: formattedAddresses
-                }));
-                
-                console.log("Formatted addresses:", formattedAddresses);
-            } else {
-                console.log("No shipping addresses data or invalid format");
-                setUserData(prev => ({
-                    ...prev,
-                    shippingAddresses: []
-                }));
-            }
-        } catch (error) {
-            console.error("Error fetching shipping addresses:", error);
-            setUserData(prev => ({
-                ...prev,
-                shippingAddresses: []
-            }));
-        } finally {
-            setLoadingAddresses(false);
-        }
-    };
-
     // Gunakan useEffect di dalam komponen
     useEffect(() => {
-        const loadData = async () => {
-            await loadUserData();
-            await getShippingAddresses();
-        };
-        loadData();
+        loadUserData();
     }, []);
 
     // Handle form submission
@@ -214,7 +155,7 @@ export default function Profile() {
     };
 
     // Shipping Address Handlers
-    const handleAddShippingAddress = async () => {
+    const handleAddShippingAddress = () => {
         if (!newShippingAddress.label.trim()) {
             alert('Label is required for shipping address');
             return;
@@ -224,97 +165,63 @@ export default function Profile() {
             return;
         }
 
-        try {
-            // Anda perlu membuat fungsi createAddress di actions/addressActions
-            // Contoh: await createAddress(newShippingAddress);
-            
-            // Untuk sementara, simpan di state lokal
-            const newAddress = {
-                ...newShippingAddress,
-                id: Date.now(), // Temporary ID for client-side
-                user_id: userId
-            };
+        const newAddress = {
+            ...newShippingAddress,
+            id: Date.now() // Temporary ID for client-side
+        };
 
-            // Jika alamat baru dijadikan default, set semua alamat lain ke false
-            if (newAddress.is_default) {
-                setUserData(prev => ({
-                    ...prev,
-                    shippingAddresses: [
-                        ...prev.shippingAddresses.map(addr => ({ ...addr, is_default: false })),
-                        newAddress
-                    ]
-                }));
-            } else {
-                setUserData(prev => ({
-                    ...prev,
-                    shippingAddresses: [...prev.shippingAddresses, newAddress]
-                }));
-            }
-            
-            alert('Shipping address added successfully!');
-            setNewShippingAddress({
-                label: '',
-                address_line: '',
-                city: '',
-                postal_code: '',
-                is_default: false
-            });
-            
-            // Refresh addresses dari API jika perlu
-            // await getShippingAddresses();
-        } catch (error) {
-            console.error('Error adding shipping address:', error);
-            alert('Failed to add shipping address');
-        }
-    };
-
-    const handleUpdateShippingAddress = async (id, updatedData) => {
-        try {
-            // Anda perlu membuat fungsi updateAddress di actions/addressActions
-            // Contoh: await updateAddress(id, updatedData);
-            
-            setUserData(prev => {
-                const updatedAddresses = prev.shippingAddresses.map(address => {
-                    if (address.id === id) {
-                        return { ...address, ...updatedData };
-                    }
-                    // Jika alamat ini dijadikan default, set yang lain ke false
-                    if (updatedData.is_default) {
-                        return { ...address, is_default: false };
-                    }
-                    return address;
-                });
-                
-                return {
-                    ...prev,
-                    shippingAddresses: updatedAddresses
-                };
-            });
-            
-            alert('Shipping address updated successfully!');
-        } catch (error) {
-            console.error('Error updating shipping address:', error);
-            alert('Failed to update shipping address');
-        }
-    };
-
-    const handleRemoveShippingAddress = async (id) => {
-        if (!confirm('Are you sure you want to remove this shipping address?')) return;
-        
-        try {
-            // Anda perlu membuat fungsi deleteAddress di actions/addressActions
-            // Contoh: await deleteAddress(id);
-            
+        // Jika alamat baru dijadikan default, set semua alamat lain ke false
+        if (newAddress.is_default) {
             setUserData(prev => ({
                 ...prev,
-                shippingAddresses: prev.shippingAddresses.filter(address => address.id !== id)
+                shippingAddresses: [
+                    ...prev.shippingAddresses.map(addr => ({ ...addr, is_default: false })),
+                    newAddress
+                ]
             }));
-            
-            alert('Shipping address removed successfully!');
-        } catch (error) {
-            console.error('Error removing shipping address:', error);
-            alert('Failed to remove shipping address');
+        } else {
+            setUserData(prev => ({
+                ...prev,
+                shippingAddresses: [...prev.shippingAddresses, newAddress]
+            }));
         }
+        
+        setNewShippingAddress({
+            label: '',
+            address_line: '',
+            city: '',
+            postal_code: '',
+            is_default: false
+        });
+    };
+
+    const handleUpdateShippingAddress = (id, updatedData) => {
+        setUserData(prev => {
+            const updatedAddresses = prev.shippingAddresses.map(address => {
+                if (address.id === id) {
+                    return { ...address, ...updatedData };
+                }
+                // Jika alamat ini dijadikan default, set yang lain ke false
+                if (updatedData.is_default) {
+                    return { ...address, is_default: false };
+                }
+                return address;
+            });
+            
+            return {
+                ...prev,
+                shippingAddresses: updatedAddresses
+            };
+        });
+    };
+
+    const handleRemoveShippingAddress = (id) => {
+        if (!confirm('Are you sure you want to remove this shipping address?')) return;
+        
+        setUserData(prev => ({
+            ...prev,
+            shippingAddresses: prev.shippingAddresses.filter(address => address.id !== id)
+        }));
     };
 
     // Billing Address Handlers
@@ -430,10 +337,7 @@ export default function Profile() {
                                             onChange={handleInputChange}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                             required
-                                            readOnly
-                                            style={{ backgroundColor: '#f9fafb', cursor: 'not-allowed' }}
                                         />
-                                        <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                                     </div>
                                     
                                     <div>
@@ -511,17 +415,9 @@ export default function Profile() {
 
                             {/* Shipping Addresses */}
                             <div className="mb-10">
-                                <div className="flex justify-between items-center mb-6 pb-2 border-b border-gray-200">
-                                    <h2 className="text-lg font-semibold text-gray-800">
-                                        Shipping Addresses
-                                    </h2>
-                                    {loadingAddresses && (
-                                        <div className="flex items-center">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                            <span className="text-sm text-gray-500">Loading...</span>
-                                        </div>
-                                    )}
-                                </div>
+                                <h2 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200">
+                                    Shipping Addresses
+                                </h2>
                                 
                                 <div className="space-y-4 mb-8">
                                     {userData.shippingAddresses && userData.shippingAddresses.length > 0 ? (
@@ -535,7 +431,6 @@ export default function Profile() {
                                                                 Default
                                                             </span>
                                                         )}
-                                                        <p className="text-xs text-gray-500 mt-1">ID: {address.id}</p>
                                                     </div>
                                                     <div className="flex space-x-2">
                                                         <button
@@ -562,41 +457,17 @@ export default function Profile() {
                                                 <p className="text-gray-600">
                                                     {address.city} {address.postal_code && `, ${address.postal_code}`}
                                                 </p>
-                                                <div className="mt-2 pt-2 border-t border-gray-200">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            // Pre-fill form dengan data alamat yang ada
-                                                            setNewShippingAddress({
-                                                                label: address.label,
-                                                                address_line: address.address_line,
-                                                                city: address.city,
-                                                                postal_code: address.postal_code,
-                                                                is_default: address.is_default
-                                                            });
-                                                        }}
-                                                        className="text-sm text-blue-600 hover:text-blue-800"
-                                                    >
-                                                        Edit Address
-                                                    </button>
-                                                </div>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="text-center py-8">
-                                            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                            <p className="mt-4 text-gray-500">No shipping addresses added yet.</p>
-                                            <p className="text-sm text-gray-400 mt-1">Add your first shipping address below</p>
-                                        </div>
+                                        <p className="text-gray-500 text-center py-4">No shipping addresses added yet.</p>
                                     )}
                                 </div>
 
                                 {/* Add New Shipping Address */}
                                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                                     <h3 className="text-md font-semibold text-gray-800 mb-4">
-                                        {newShippingAddress.label ? 'Edit Shipping Address' : 'Add New Shipping Address'}
+                                        Add New Shipping Address
                                     </h3>
                                     
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -666,31 +537,13 @@ export default function Profile() {
                                         </label>
                                     </div>
                                     
-                                    <div className="flex space-x-3">
-                                        <button
-                                            type="button"
-                                            onClick={handleAddShippingAddress}
-                                            className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                        >
-                                            {newShippingAddress.label ? 'Update Address' : 'Add Shipping Address'}
-                                        </button>
-                                        
-                                        {newShippingAddress.label && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setNewShippingAddress({
-                                                    label: '',
-                                                    address_line: '',
-                                                    city: '',
-                                                    postal_code: '',
-                                                    is_default: false
-                                                })}
-                                                className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                                            >
-                                                Clear Form
-                                            </button>
-                                        )}
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddShippingAddress}
+                                        className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                        Add Shipping Address
+                                    </button>
                                 </div>
                             </div>
 
