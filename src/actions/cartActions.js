@@ -6,7 +6,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 export async function handleCartItems() {
   try {
     const customer = await getCustomerData();
-    console.log("Customer data in handleCartItems:", customer);
+    // console.log("Customer data in handleCartItems:", customer);
 
     // Check if customer exists and has data
     if (!customer || !customer.data || !customer.data.id) {
@@ -107,7 +107,7 @@ export async function getCartTotal() {
 
 export async function handleRemoveSingleItem(cartId) {
   try {
-    const response = await fetch(`${BASE_URL}/api/cart/`, {
+    const response = await fetch(`${BASE_URL}/api/cart`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cartIds: [cartId] }),
@@ -248,10 +248,34 @@ export async function getUserAddress() {
       cache: "no-store",
     });
     const data = await response.json();
-    console.log("Fetched user address:", data);
+    // console.log("Fetched user address:", data);
     return data;
   } catch (error) {
     console.error("Error fetching user address:", error);
+    return null;
+  }
+}
+
+export async function getUserBilling(){
+  const customer = await getCustomerData();
+  if (!customer || !customer.data || !customer.data.id) {
+    return null;
+  }
+  const userId = Number(customer.data.id);
+
+  try {
+    const response = await fetch(`${BASE_URL}/api/billing/${userId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+    const data = await response.json();
+    // console.log("Fetched user billing:", data);
+    return data;
+  } catch (error) {
+    console.error("Error fetching user billing:", error);
     return null;
   }
 }

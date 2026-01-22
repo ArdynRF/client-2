@@ -3,8 +3,11 @@ import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { handleCartCheckout } from "@/actions/cartActions";
+import { getUserBilling, handleCartCheckout } from "@/actions/cartActions";
 import ModalPaymentConfirmation from "@/components/Modal/ModalPaymentConfirmation";
+import { getUserAddress } from "@/actions/cartActions";
+import { getCustomerData } from "@/actions/authActions";
+import { handleCheckoutAction } from "@/actions/checkoutActions";
 
 export default function COFromCart() {
   // State untuk data checkout
@@ -28,28 +31,28 @@ export default function COFromCart() {
   const [checkoutData, setCheckoutData] = useState(null);
 
   // Data dummy untuk alamat, payment methods, dan shipping methods
-  const dummyAddresses = [
-    {
-      id: 1,
-      name: "Rumah",
-      recipient: "John Doe",
-      phone: "081234567890",
-      address: "Jl. Sudirman No. 123, Jakarta Selatan",
-      city: "Jakarta",
-      postalCode: "12190",
-      isPrimary: true,
-    },
-    {
-      id: 2,
-      name: "Kantor",
-      recipient: "John Doe",
-      phone: "081234567891",
-      address: "Jl. Thamrin No. 456, Jakarta Pusat",
-      city: "Jakarta",
-      postalCode: "10240",
-      isPrimary: false,
-    },
-  ];
+  // const dummyAddresses = [
+  //   {
+  //     id: 1,
+  //     name: "Rumah",
+  //     recipient: "John Doe",
+  //     phone: "081234567890",
+  //     address: "Jl. Sudirman No. 123, Jakarta Selatan",
+  //     city: "Jakarta",
+  //     postalCode: "12190",
+  //     isPrimary: true,
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Kantor",
+  //     recipient: "John Doe",
+  //     phone: "081234567891",
+  //     address: "Jl. Thamrin No. 456, Jakarta Pusat",
+  //     city: "Jakarta",
+  //     postalCode: "10240",
+  //     isPrimary: false,
+  //   },
+  // ];
 
   const dummyPaymentMethods = [
     { id: "bank_transfer", name: "Bank Transfer", icon: "🏦" },
@@ -60,7 +63,6 @@ export default function COFromCart() {
     { id: "cod", name: "Cash on Delivery", icon: "💰" },
   ];
 
-  // Data metode pengiriman dengan estimasi waktu dan harga
   const dummyShippingMethods = [
     {
       id: "instant",
@@ -125,10 +127,9 @@ export default function COFromCart() {
     taxCost: currentTaxCost,
   } = calculateTotals();
 
-  // Load data dari API
   useEffect(() => {
     const ids = searchParams.getAll("itemIds");
-    console.log("Item IDs from URL:", ids);
+    // console.log("Item IDs from URL:", ids);
 
     if (ids.length > 0) {
       setItemIds(ids);
@@ -144,21 +145,36 @@ export default function COFromCart() {
 
     try {
       const result = await handleCartCheckout(ids);
-      console.log("Fetched items for checkout:", result);
+      const fetchedAddress = await getUserAddress();
+      const fetchedUser = await getCustomerData();
+      const fetchedBilling = await getUserBilling();
+      // console.log("Fetched user address:", fetchedAddress);
+      // console.log("Fetched items for checkout:", result);
+      // console.log("Fetched user data:", fetchedUser);
+      // console.log("Fetched user billing:", fetchedBilling);
 
       if (result.success && result.data.length > 0) {
         setSelectedItems(result.data);
 
-        // Set data alamat, payment, dan shipping methods
-        setAddresses(dummyAddresses);
-        const primaryAddress = dummyAddresses.find((addr) => addr.isPrimary);
-        setSelectedAddress(primaryAddress || dummyAddresses[0]);
+        const formattedAddresses = fetchedAddress.data.map((address) => ({
+          id: address.id,
+          name: address.label || `Alamat ${address.id}`,
+          recipient: fetchedUser.data.name || "John Doe",
+          phone: fetchedUser.data.phone_number || "081234567890",
+          address: address.address_line || "",
+          city: address.city || "",
+          postalCode: address.postal_code || "",
+          isPrimary: address.is_default || false,
+        }));
+        // console.log(formattedAddresses);
+        setAddresses(formattedAddresses);
+        const primaryAddress = formattedAddresses.find(
+          (addr) => addr.isPrimary
+        );
+        setSelectedAddress(primaryAddress || formattedAddresses[0]);
         setPaymentMethods(dummyPaymentMethods);
         setSelectedPaymentMethod("bank_transfer");
-
-        // Set shipping methods
         setShippingMethods(dummyShippingMethods);
-        // Default pilih reguler delivery
         setSelectedShippingMethod("reguler");
       } else {
         setError(result.message || "Tidak ada item yang ditemukan");
@@ -241,40 +257,61 @@ export default function COFromCart() {
     try {
       console.log("Payment confirmed, creating order:", orderData);
 
-      // Simpan order ke localStorage untuk order history
-      const existingOrders = JSON.parse(
-        localStorage.getItem("orderHistory") || "[]"
-      );
-      const newOrder = {
+      // Siapkan data untuk API
+      const checkoutDataForAPI = {
         ...orderData,
-        orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        orderDate: new Date().toISOString(),
-        status: "processing",
+        orderStatus: "processing",
         paymentStatus: "down_payment_paid",
         downPayment: orderData.total * 0.3,
         remainingPayment: orderData.total * 0.7,
       };
 
-      localStorage.setItem(
-        "orderHistory",
-        JSON.stringify([newOrder, ...existingOrders])
-      );
+      console.log("Sending to backend:", checkoutDataForAPI);
 
-      // Hapus item dari cart (opsional, bisa panggil API)
-      const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
-      const updatedCartItems = cartItems.filter(
-        (item) => !orderData.itemIds.includes(item.id)
-      );
-      localStorage.setItem("cartItems", JSON.stringify(updatedCartItems));
+      const response = await handleCheckoutAction(checkoutDataForAPI, "cart");
 
-      // Redirect ke order history
-      // router.push("/orders");
+      if (response.success) {
+        console.log("Checkout successful:", response);
+
+        const existingOrders = JSON.parse(
+          localStorage.getItem("orderHistory") || "[]"
+        );
+        const newOrder = {
+          ...orderData,
+          orderId:
+            response.orderId ||
+            response.data?.id ||
+            `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          orderNumber: response.orderNumber,
+          orderDate: new Date().toISOString(),
+          status: "processing",
+          paymentStatus: "down_payment_paid",
+          downPayment: orderData.total * 0.3,
+          remainingPayment: orderData.total * 0.7,
+          backendId: response.data?.id, 
+        };
+
+        localStorage.setItem(
+          "orderHistory",
+          JSON.stringify([newOrder, ...existingOrders])
+        );
+
+        const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
+        const updatedCartItems = cartItems.filter(
+          (item) => !orderData.itemIds.includes(item.id)
+        );
+        localStorage.setItem("cartItems", JSON.stringify(updatedCartItems));
+        alert(`Pesanan berhasil dibuat! Nomor order: ${response.orderNumber}`);
+        // router.push("/orders");
+      } else {
+        console.error("Checkout failed:", response.message);
+        alert(`Gagal membuat pesanan: ${response.message}`);
+      }
     } catch (error) {
       console.error("Error processing payment:", error);
       alert("Terjadi kesalahan saat memproses pembayaran");
     }
   };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
