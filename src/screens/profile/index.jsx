@@ -13,8 +13,7 @@ import {
   updatePasswordClient
 } from "@/actions/profileClientActions";
 import { getCustomerData } from "@/actions/authActions";
-import { getUserAddress } from "@/actions/cartActions"; 
-import { getUserBilling } from "@/actions/cartActions";
+import { getUserAddress } from "@/actions/cartActions";
 
 export default function Profile() {
   const [loading, setLoading] = useState(true);
@@ -149,15 +148,20 @@ export default function Profile() {
     }
   };
 
+  // Load billing addresses
   const getBillingAddresses = async () => {
     try {
-      const response = await getUserBilling();
-      console.log(response);
-    }catch (error) {
-
+      const profileData = await getUserProfileClient(userId);
+      if (profileData && profileData.billingAddresses) {
+        setUserData((prev) => ({
+          ...prev,
+          billingAddresses: profileData.billingAddresses,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching billing addresses:", error);
     }
-
-  }
+  };
 
   // Gunakan useEffect di dalam komponen
   useEffect(() => {
