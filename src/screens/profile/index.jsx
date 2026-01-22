@@ -7,6 +7,7 @@ import {
 } from "@/actions/profileAction";
 import { getCustomerData } from "@/actions/authActions";
 import { getUserAddress } from "@/actions/cartActions"; 
+import { getUserBilling } from "@/actions/cartActions";
 
 export default function Profile() {
   const [loading, setLoading] = useState(true);
@@ -140,11 +141,22 @@ export default function Profile() {
     }
   };
 
+  const getBillingAddresses = async () => {
+    try {
+      const response = await getUserBilling();
+      console.log(response);
+    }catch (error) {
+
+    }
+
+  }
+
   // Gunakan useEffect di dalam komponen
   useEffect(() => {
     const loadData = async () => {
       await loadUserData();
       await getShippingAddresses();
+      await getBillingAddresses();
     };
 
     loadData();
