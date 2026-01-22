@@ -4,7 +4,8 @@ import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import ModalPaymentConfirmation from "@/components/Modal/ModalPaymentConfirmation";
-import { getUserAddress } from "@/actions/cartActions";
+import { getUserAddress, getUserBilling } from "@/actions/cartActions";
+import { handleCheckoutAction } from "@/actions/checkoutActions";
 
 export default function DirectCheckoutPage() {
   const searchParams = useSearchParams();
@@ -97,7 +98,7 @@ export default function DirectCheckoutPage() {
   useEffect(() => {
     const loadData = async () => {
       const dataParam = searchParams.get("data");
-      console.log("Data from URL:", dataParam);
+      // console.log("Data from URL:", dataParam);
 
       if (dataParam) {
         try {
@@ -115,7 +116,8 @@ export default function DirectCheckoutPage() {
           // Fetch alamat dari API dengan async/await
           try {
             const fetchAddresses = await getUserAddress();
-            console.log("Fetched addresses:", fetchAddresses);
+            const fetchedBilling = await getUserBilling();
+            // console.log("Fetched Billing Info:", fetchedBilling);
 
             if (
               fetchAddresses &&
@@ -134,7 +136,7 @@ export default function DirectCheckoutPage() {
                 isPrimary: address.is_default || false,
               }));
 
-              console.log("Formatted Addresses:", formattedAddresses);
+              // console.log("Formatted Addresses:", formattedAddresses);
               setAddresses(formattedAddresses);
 
               // Pilih alamat utama (default)
@@ -298,12 +300,10 @@ export default function DirectCheckoutPage() {
         confirmedOrderData
       );
 
-      // Create final order data
-      const finalOrder = {
+      // Siapkan data untuk API
+      const checkoutDataForAPI = {
         ...confirmedOrderData,
-        orderId: `ORD-DIRECT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        orderDate: new Date().toISOString(),
-        status: checkoutData.isOutOfStock ? "pre_order" : "processing",
+        orderStatus: checkoutData.isOutOfStock ? "pre_order" : "processing",
         paymentStatus: "down_payment_paid",
         downPayment: confirmedOrderData.total * 0.3,
         remainingPayment: confirmedOrderData.total * 0.7,
@@ -311,29 +311,54 @@ export default function DirectCheckoutPage() {
         productDetails: checkoutData.productDetails || {},
       };
 
-      // Save to localStorage for order history
-      const existingOrders = JSON.parse(
-        localStorage.getItem("orderHistory") || "[]"
-      );
-      localStorage.setItem(
-        "orderHistory",
-        JSON.stringify([finalOrder, ...existingOrders])
-      );
+      console.log("Sending to backend:", checkoutDataForAPI);
 
-      // Clear any checkout data from localStorage
-      localStorage.removeItem("directCheckoutData");
+      const response = await handleCheckoutAction(checkoutDataForAPI, "direct");
 
-      // Show success message
-      alert("Pembayaran DP 30% berhasil! Pesanan Anda telah dikonfirmasi.");
+      if (response.success) {
+        console.log("Direct checkout successful:", response);
 
-      // Redirect to order history
-      // router.push("/orders");
+        const existingOrders = JSON.parse(
+          localStorage.getItem("orderHistory") || "[]"
+        );
+        const newOrder = {
+          ...confirmedOrderData,
+          orderId:
+            response.orderId ||
+            response.data?.id ||
+            `ORD-DIRECT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          orderNumber: response.orderNumber,
+          orderDate: new Date().toISOString(),
+          status: checkoutData.isOutOfStock ? "pre_order" : "processing",
+          paymentStatus: "down_payment_paid",
+          downPayment: confirmedOrderData.total * 0.3,
+          remainingPayment: confirmedOrderData.total * 0.7,
+          orderType: checkoutData.isSampleOrder ? "sample" : "regular",
+          productDetails: checkoutData.productDetails || {},
+          backendId: response.data?.id,
+        };
+
+        localStorage.setItem(
+          "orderHistory",
+          JSON.stringify([newOrder, ...existingOrders])
+        );
+
+        // Clear any checkout data from localStorage
+        localStorage.removeItem("directCheckoutData");
+
+        alert(
+          `Pembayaran DP 30% berhasil! Nomor order: ${response.orderNumber}`
+        );
+        // router.push("/orders");
+      } else {
+        console.error("Direct checkout failed:", response.message);
+        alert(`Gagal membuat pesanan: ${response.message}`);
+      }
     } catch (error) {
       console.error("Error processing direct payment:", error);
       alert("Terjadi kesalahan saat memproses pembayaran");
     }
   };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
