@@ -147,6 +147,8 @@ function prepareDirectCheckoutData(checkoutData, userId) {
         unitPrice: productData.unitPrice,
         totalPrice: productData.totalPrice,
         color: productData.color || null,
+        isSampleOrder: productData.isSampleOrder || false,
+        orderStatus: productData.isOutOfStock ? "pre_order" : "",
         // Product snapshot
         productSnapshot: {
           image: productData.productImage || "",
@@ -155,7 +157,6 @@ function prepareDirectCheckoutData(checkoutData, userId) {
           mrp: productData.unitPrice || 0,
           description: productData.productName,
           priceTiers: [],
-          isSampleOrder: productData.isSampleOrder || false,
           samplePrice: productData.samplePrice || null,
           productDetails: productData.productDetails || {},
           weight: productData.productDetails?.weight,
@@ -179,7 +180,7 @@ function prepareDirectCheckoutData(checkoutData, userId) {
       checkoutData.remainingPayment ||
       calculateRemainingPayment(checkoutData.total || 0),
     paymentStatus: "down_payment_paid",
-    orderStatus: productData.isOutOfStock ? "pre_order" : "processing",
+    orderStatus: productData.isOutOfStock ? "pre_order" : "",
     orderNumber: generateOrderNumber("DIRECT"),
     orderType: productData.isSampleOrder ? "sample" : "regular",
     notes: productData.notes || "",

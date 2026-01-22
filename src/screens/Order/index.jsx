@@ -329,13 +329,16 @@ export default function OrdersPage() {
                           </div>
                           <div className="flex-1">
                             <h4 className="font-medium text-gray-900">
-                              {item.product?.name || "Unknown Product"}
+                              {item.product?.name || "Unknown Product"} 
                             </h4>
                             <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
                               <span>Qty: {item.quantity}</span>
                               {item.color && <span>Color: {item.color}</span>}
                               <span>
                                 Price: {formatCurrency(item.unitPrice)}
+                              </span>
+                              <span className={`px-2 py-1 text-xs font-medium rounded ${item.productStatus === 'Pre Order' ? 'bg-yellow-100 text-yellow-800' : item.productStatus === 'Sample Order' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
+                                {item.productStatus?`${item.productStatus}`:''}
                               </span>
                             </div>
                           </div>

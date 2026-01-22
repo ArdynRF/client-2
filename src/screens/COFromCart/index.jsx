@@ -257,7 +257,6 @@ export default function COFromCart() {
     try {
       console.log("Payment confirmed, creating order:", orderData);
 
-      // Siapkan data untuk API
       const checkoutDataForAPI = {
         ...orderData,
         orderStatus: "processing",
