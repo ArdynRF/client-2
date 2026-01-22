@@ -4,10 +4,16 @@ import { useState, useEffect } from "react";
 import {
   getUserProfileClient,
   updateUserProfileClient,
-} from "@/actions/profileAction";
+  createAddressClient,
+  updateAddressClient,
+  deleteAddressClient,
+  createBillingAddressClient,
+  updateBillingAddressClient,
+  deleteBillingAddressClient,
+  updatePasswordClient
+} from "@/actions/profileClientActions";
 import { getCustomerData } from "@/actions/authActions";
-import { getUserAddress } from "@/actions/cartActions"; 
-import { getUserBilling } from "@/actions/cartActions";
+import { getUserAddress } from "@/actions/cartActions";
 
 export default function Profile() {
   const [loading, setLoading] = useState(true);
@@ -17,7 +23,7 @@ export default function Profile() {
     name: "",
     email: "",
     phone: "",
-    shippingAddresses: [], // Akan diisi dari API
+    shippingAddresses: [],
     billingAddresses: [],
   });
 
@@ -45,6 +51,8 @@ export default function Profile() {
 
   // State untuk loading shipping addresses
   const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [editingShippingAddressId, setEditingShippingAddressId] = useState(null);
+  const [editingBillingAddressId, setEditingBillingAddressId] = useState(null);
 
   // Load user data
   const loadUserData = async () => {
@@ -80,7 +88,6 @@ export default function Profile() {
         name: profileData?.name || customerData.name || "",
         email: profileData?.email || customerData.email || "",
         phone: profileData?.phone || customerData.phone_number || "",
-        // Shipping addresses akan diisi dari fungsi getShippingAddresses
         billingAddresses: profileData?.billingAddresses || [],
       }));
     } catch (error) {
@@ -141,15 +148,20 @@ export default function Profile() {
     }
   };
 
+  // Load billing addresses
   const getBillingAddresses = async () => {
     try {
-      const response = await getUserBilling();
-      console.log(response);
-    }catch (error) {
-
+      const profileData = await getUserProfileClient(userId);
+      if (profileData && profileData.billingAddresses) {
+        setUserData((prev) => ({
+          ...prev,
+          billingAddresses: profileData.billingAddresses,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching billing addresses:", error);
     }
-
-  }
+  };
 
   // Gunakan useEffect di dalam komponen
   useEffect(() => {
@@ -172,11 +184,20 @@ export default function Profile() {
 
     try {
       setSaving(true);
-      await updateUserProfileClient(userId, userData);
-      alert("Profile updated successfully!");
+      const result = await updateUserProfileClient(userId, {
+        name: userData.name,
+        phone: userData.phone,
+      });
+      
+      if (result.success) {
+        alert("Profile updated successfully!");
+        await loadUserData(); // Refresh data
+      } else {
+        throw new Error(result.message || "Failed to update profile");
+      }
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert("Failed to update profile");
+      alert(error.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -202,7 +223,7 @@ export default function Profile() {
 
   // Handle update password
   const handleUpdatePassword = async () => {
-    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
       alert("Please fill in all password fields");
       return;
     }
@@ -218,17 +239,24 @@ export default function Profile() {
     }
 
     try {
-      // Anda perlu membuat fungsi khusus untuk update password
-      // await updatePasswordClient(userId, passwordData.currentPassword, passwordData.newPassword);
-      alert("Password updated successfully!");
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
+      const result = await updatePasswordClient(
+        passwordData.currentPassword,
+        passwordData.newPassword
+      );
+      
+      if (result.success) {
+        alert("Password updated successfully!");
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } else {
+        throw new Error(result.message || "Failed to update password");
+      }
     } catch (error) {
       console.error("Error updating password:", error);
-      alert("Failed to update password");
+      alert(error.message || "Failed to update password");
     }
   };
 
@@ -244,79 +272,72 @@ export default function Profile() {
     }
 
     try {
-      // Anda perlu membuat fungsi createAddress di actions/addressActions
-      // Contoh: await createAddress(newShippingAddress);
-
-      // Untuk sementara, simpan di state lokal
-      const newAddress = {
-        ...newShippingAddress,
-        id: Date.now(), // Temporary ID for client-side
-        user_id: userId,
-      };
-
-      // Jika alamat baru dijadikan default, set semua alamat lain ke false
-      if (newAddress.is_default) {
-        setUserData((prev) => ({
-          ...prev,
-          shippingAddresses: [
-            ...prev.shippingAddresses.map((addr) => ({
-              ...addr,
-              is_default: false,
-            })),
-            newAddress,
-          ],
-        }));
+      let result;
+      
+      if (editingShippingAddressId) {
+        // Update existing address
+        result = await updateAddressClient(editingShippingAddressId, newShippingAddress);
       } else {
-        setUserData((prev) => ({
-          ...prev,
-          shippingAddresses: [...prev.shippingAddresses, newAddress],
-        }));
+        // Create new address
+        result = await createAddressClient(newShippingAddress);
       }
-
-      alert("Shipping address added successfully!");
-      setNewShippingAddress({
-        label: "",
-        address_line: "",
-        city: "",
-        postal_code: "",
-        is_default: false,
-      });
-
-      // Refresh addresses dari API jika perlu
-      // await getShippingAddresses();
+      
+      if (result.success) {
+        // Refresh addresses dari API
+        await getShippingAddresses();
+        
+        alert(editingShippingAddressId ? 
+          "Shipping address updated successfully!" : 
+          "Shipping address added successfully!");
+        
+        // Reset form
+        setNewShippingAddress({
+          label: "",
+          address_line: "",
+          city: "",
+          postal_code: "",
+          is_default: false,
+        });
+        setEditingShippingAddressId(null);
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
-      console.error("Error adding shipping address:", error);
-      alert("Failed to add shipping address");
+      console.error("Error saving shipping address:", error);
+      alert(error.message || "Failed to save shipping address");
     }
   };
 
-  const handleUpdateShippingAddress = async (id, updatedData) => {
+  const handleEditShippingAddress = (address) => {
+    setNewShippingAddress({
+      label: address.label,
+      address_line: address.address_line,
+      city: address.city,
+      postal_code: address.postal_code,
+      is_default: address.is_default,
+    });
+    setEditingShippingAddressId(address.id);
+  };
+
+  const handleUpdateShippingAddressDefault = async (id, isDefault) => {
     try {
-      // Anda perlu membuat fungsi updateAddress di actions/addressActions
-      // Contoh: await updateAddress(id, updatedData);
+      const address = userData.shippingAddresses.find(addr => addr.id === id);
+      if (!address) return;
 
-      setUserData((prev) => {
-        const updatedAddresses = prev.shippingAddresses.map((address) => {
-          if (address.id === id) {
-            return { ...address, ...updatedData };
-          }
-          // Jika alamat ini dijadikan default, set yang lain ke false
-          if (updatedData.is_default) {
-            return { ...address, is_default: false };
-          }
-          return address;
-        });
-
-        return {
-          ...prev,
-          shippingAddresses: updatedAddresses,
-        };
+      const result = await updateAddressClient(id, {
+        ...address,
+        is_default: !isDefault
       });
-
-      alert("Shipping address updated successfully!");
+      
+      if (result.success) {
+        await getShippingAddresses();
+        alert("Shipping address updated successfully!");
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
       console.error("Error updating shipping address:", error);
-      alert("Failed to update shipping address");
+      alert(error.message || "Failed to update shipping address");
     }
   };
 
@@ -325,91 +346,132 @@ export default function Profile() {
       return;
 
     try {
-      // Anda perlu membuat fungsi deleteAddress di actions/addressActions
-      // Contoh: await deleteAddress(id);
-
-      setUserData((prev) => ({
-        ...prev,
-        shippingAddresses: prev.shippingAddresses.filter(
-          (address) => address.id !== id
-        ),
-      }));
-
-      alert("Shipping address removed successfully!");
+      const result = await deleteAddressClient(id);
+      
+      if (result.success) {
+        // Refresh addresses dari API
+        await getShippingAddresses();
+        alert("Shipping address removed successfully!");
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
       console.error("Error removing shipping address:", error);
-      alert("Failed to remove shipping address");
+      alert(error.message || "Failed to remove shipping address");
     }
   };
 
   // Billing Address Handlers
-  const handleAddBillingAddress = () => {
+  const handleAddBillingAddress = async () => {
     if (!newBillingAddress.NIK.trim()) {
       alert("NIK is required for billing address");
       return;
     }
 
-    const newAddress = {
-      ...newBillingAddress,
-      id: Date.now(), // Temporary ID for client-side
-    };
-
-    // Jika billing address baru dijadikan default, set semua yang lain ke false
-    if (newAddress.is_default) {
-      setUserData((prev) => ({
-        ...prev,
-        billingAddresses: [
-          ...prev.billingAddresses.map((addr) => ({
-            ...addr,
-            is_default: false,
-          })),
-          newAddress,
-        ],
-      }));
-    } else {
-      setUserData((prev) => ({
-        ...prev,
-        billingAddresses: [...prev.billingAddresses, newAddress],
-      }));
+    try {
+      let result;
+      
+      if (editingBillingAddressId) {
+        // Update existing billing address
+        result = await updateBillingAddressClient(editingBillingAddressId, newBillingAddress);
+      } else {
+        // Create new billing address
+        result = await createBillingAddressClient(newBillingAddress);
+      }
+      
+      if (result.success) {
+        // Refresh billing addresses
+        await loadUserData();
+        
+        alert(editingBillingAddressId ?
+          "Billing information updated successfully!" :
+          "Billing information added successfully!");
+        
+        // Reset form
+        setNewBillingAddress({
+          NIK: "",
+          NPWP: "",
+          is_default: false,
+        });
+        setEditingBillingAddressId(null);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error("Error saving billing address:", error);
+      alert(error.message || "Failed to save billing information");
     }
+  };
 
+  const handleEditBillingAddress = (address) => {
+    setNewBillingAddress({
+      NIK: address.NIK,
+      NPWP: address.NPWP || "",
+      is_default: address.is_default,
+    });
+    setEditingBillingAddressId(address.id);
+  };
+
+  const handleUpdateBillingAddressDefault = async (id, isDefault) => {
+    try {
+      const address = userData.billingAddresses.find(addr => addr.id === id);
+      if (!address) return;
+
+      const result = await updateBillingAddressClient(id, {
+        ...address,
+        is_default: !isDefault
+      });
+      
+      if (result.success) {
+        await loadUserData();
+        alert("Billing information updated successfully!");
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error("Error updating billing address:", error);
+      alert(error.message || "Failed to update billing information");
+    }
+  };
+
+  const handleRemoveBillingAddress = async (id) => {
+    if (!confirm("Are you sure you want to remove this billing information?"))
+      return;
+
+    try {
+      const result = await deleteBillingAddressClient(id);
+      
+      if (result.success) {
+        await loadUserData();
+        alert("Billing information removed successfully!");
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error("Error removing billing address:", error);
+      alert(error.message || "Failed to remove billing information");
+    }
+  };
+
+  // Clear form functions
+  const clearShippingForm = () => {
+    setNewShippingAddress({
+      label: "",
+      address_line: "",
+      city: "",
+      postal_code: "",
+      is_default: false,
+    });
+    setEditingShippingAddressId(null);
+  };
+
+  const clearBillingForm = () => {
     setNewBillingAddress({
       NIK: "",
       NPWP: "",
       is_default: false,
     });
-  };
-
-  const handleUpdateBillingAddress = (id, updatedData) => {
-    setUserData((prev) => {
-      const updatedAddresses = prev.billingAddresses.map((address) => {
-        if (address.id === id) {
-          return { ...address, ...updatedData };
-        }
-        // Jika alamat ini dijadikan default, set yang lain ke false
-        if (updatedData.is_default) {
-          return { ...address, is_default: false };
-        }
-        return address;
-      });
-
-      return {
-        ...prev,
-        billingAddresses: updatedAddresses,
-      };
-    });
-  };
-
-  const handleRemoveBillingAddress = (id) => {
-    if (!confirm("Are you sure you want to remove this billing address?"))
-      return;
-
-    setUserData((prev) => ({
-      ...prev,
-      billingAddresses: prev.billingAddresses.filter(
-        (address) => address.id !== id
-      ),
-    }));
+    setEditingBillingAddressId(null);
   };
 
   if (loading) {
@@ -430,7 +492,7 @@ export default function Profile() {
               My Profile
             </h1>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit}>  
               {/* Basic Information */}
               <div className="mb-10">
                 <h2 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200">
@@ -586,10 +648,8 @@ export default function Profile() {
                           <div className="flex space-x-2">
                             <button
                               type="button"
-                              onClick={() =>
-                                handleUpdateShippingAddress(address.id, {
-                                  is_default: !address.is_default,
-                                })
+                              onClick={() => 
+                                handleUpdateShippingAddressDefault(address.id, address.is_default)
                               }
                               className={`px-3 py-1 text-sm rounded-md ${
                                 address.is_default
@@ -598,6 +658,13 @@ export default function Profile() {
                               }`}
                             >
                               {address.is_default ? "Default" : "Set Default"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditShippingAddress(address)}
+                              className="px-3 py-1 text-sm bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200"
+                            >
+                              Edit
                             </button>
                             <button
                               type="button"
@@ -615,24 +682,6 @@ export default function Profile() {
                           {address.city}{" "}
                           {address.postal_code && `, ${address.postal_code}`}
                         </p>
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              // Pre-fill form dengan data alamat yang ada
-                              setNewShippingAddress({
-                                label: address.label,
-                                address_line: address.address_line,
-                                city: address.city,
-                                postal_code: address.postal_code,
-                                is_default: address.is_default,
-                              });
-                            }}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            Edit Address
-                          </button>
-                        </div>
                       </div>
                     ))
                   ) : (
@@ -660,12 +709,10 @@ export default function Profile() {
                   )}
                 </div>
 
-                {/* Add New Shipping Address */}
+                {/* Add/Edit Shipping Address */}
                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                   <h3 className="text-md font-semibold text-gray-800 mb-4">
-                    {newShippingAddress.label
-                      ? "Edit Shipping Address"
-                      : "Add New Shipping Address"}
+                    {editingShippingAddressId ? "Edit Shipping Address" : "Add New Shipping Address"}
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -769,26 +816,16 @@ export default function Profile() {
                       onClick={handleAddShippingAddress}
                       className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
-                      {newShippingAddress.label
-                        ? "Update Address"
-                        : "Add Shipping Address"}
+                      {editingShippingAddressId ? "Update Address" : "Add Shipping Address"}
                     </button>
 
-                    {newShippingAddress.label && (
+                    {(newShippingAddress.label || editingShippingAddressId) && (
                       <button
                         type="button"
-                        onClick={() =>
-                          setNewShippingAddress({
-                            label: "",
-                            address_line: "",
-                            city: "",
-                            postal_code: "",
-                            is_default: false,
-                          })
-                        }
+                        onClick={clearShippingForm}
                         className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                       >
-                        Clear Form
+                        {editingShippingAddressId ? "Cancel Edit" : "Clear Form"}
                       </button>
                     )}
                   </div>
@@ -823,10 +860,8 @@ export default function Profile() {
                           <div className="flex space-x-2">
                             <button
                               type="button"
-                              onClick={() =>
-                                handleUpdateBillingAddress(address.id, {
-                                  is_default: !address.is_default,
-                                })
+                              onClick={() => 
+                                handleUpdateBillingAddressDefault(address.id, address.is_default)
                               }
                               className={`px-3 py-1 text-sm rounded-md ${
                                 address.is_default
@@ -835,6 +870,13 @@ export default function Profile() {
                               }`}
                             >
                               {address.is_default ? "Default" : "Set Default"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditBillingAddress(address)}
+                              className="px-3 py-1 text-sm bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200"
+                            >
+                              Edit
                             </button>
                             <button
                               type="button"
@@ -866,10 +908,10 @@ export default function Profile() {
                   )}
                 </div>
 
-                {/* Add New Billing Address */}
+                {/* Add/Edit Billing Address */}
                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                   <h3 className="text-md font-semibold text-gray-800 mb-4">
-                    Add New Billing Information
+                    {editingBillingAddressId ? "Edit Billing Information" : "Add New Billing Information"}
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -931,13 +973,25 @@ export default function Profile() {
                     </label>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAddBillingAddress}
-                    className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Add Billing Information
-                  </button>
+                  <div className="flex space-x-3">
+                    <button
+                      type="button"
+                      onClick={handleAddBillingAddress}
+                      className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      {editingBillingAddressId ? "Update Billing Information" : "Add Billing Information"}
+                    </button>
+
+                    {(newBillingAddress.NIK || editingBillingAddressId) && (
+                      <button
+                        type="button"
+                        onClick={clearBillingForm}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                      >
+                        {editingBillingAddressId ? "Cancel Edit" : "Clear Form"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
