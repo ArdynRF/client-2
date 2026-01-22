@@ -383,7 +383,7 @@ export default function Profile() {
               My Profile
             </h1>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit}>  
               {/* Basic Information */}
               <div className="mb-10">
                 <h2 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200">
