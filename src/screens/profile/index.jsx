@@ -10,7 +10,7 @@ import {
   createBillingAddressClient,
   updateBillingAddressClient,
   deleteBillingAddressClient,
-  updatePasswordClient
+  updatePasswordClient,
 } from "@/actions/profileClientActions";
 import { getCustomerData } from "@/actions/authActions";
 import { getUserAddress } from "@/actions/cartActions";
@@ -42,16 +42,16 @@ export default function Profile() {
     is_default: false,
   });
 
-  // State untuk password
+  // State untuk password (terpisah)
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
 
-  // State untuk loading shipping addresses
   const [loadingAddresses, setLoadingAddresses] = useState(false);
-  const [editingShippingAddressId, setEditingShippingAddressId] = useState(null);
+  const [editingShippingAddressId, setEditingShippingAddressId] =
+    useState(null);
   const [editingBillingAddressId, setEditingBillingAddressId] = useState(null);
 
   // Load user data
@@ -105,7 +105,7 @@ export default function Profile() {
     }
   };
 
-  // Load shipping addresses dari API
+  // Load shipping addresses
   const getShippingAddresses = async () => {
     try {
       setLoadingAddresses(true);
@@ -113,7 +113,6 @@ export default function Profile() {
       console.log("Shipping addresses fetched:", response);
 
       if (response && response.data && Array.isArray(response.data)) {
-        // Format data untuk match dengan struktur yang diharapkan
         const formattedAddresses = response.data.map((address) => ({
           id: address.id,
           label: address.label,
@@ -128,10 +127,7 @@ export default function Profile() {
           ...prev,
           shippingAddresses: formattedAddresses,
         }));
-
-        console.log("Formatted addresses:", formattedAddresses);
       } else {
-        console.log("No shipping addresses data or invalid format");
         setUserData((prev) => ({
           ...prev,
           shippingAddresses: [],
@@ -163,20 +159,23 @@ export default function Profile() {
     }
   };
 
-  // Gunakan useEffect di dalam komponen
+  // Load all data
   useEffect(() => {
     const loadData = async () => {
       await loadUserData();
       await getShippingAddresses();
-      await getBillingAddresses();
+      if (userId) await getBillingAddresses();
     };
 
     loadData();
-  }, []);
+  }, [userId]);
 
-  // Handle form submission
+  // ===========================
+  // HANDLE SUBMIT UPDATED
+  // ===========================
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!userId) {
       alert("User not authenticated");
       return;
@@ -184,20 +183,89 @@ export default function Profile() {
 
     try {
       setSaving(true);
-      const result = await updateUserProfileClient(userId, {
+
+      // Prepare data for API - semua data kecuali password
+      const profileUpdateData = {
+        userId: userId,
         name: userData.name,
         phone: userData.phone,
-      });
-      
+        email: userData.email, // read-only di frontend, tapi tetap dikirim
+        shippingAddresses: userData.shippingAddresses.map((addr) => ({
+          id: addr.id,
+          label: addr.label,
+          address_line: addr.address_line,
+          city: addr.city,
+          postal_code: addr.postal_code,
+          is_default: addr.is_default,
+        })),
+        billingAddresses: userData.billingAddresses.map((addr) => ({
+          id: addr.id,
+          NIK: addr.NIK,
+          NPWP: addr.NPWP,
+          is_default: addr.is_default,
+        })),
+        // Tambah alamat baru jika sedang diedit/ditambahkan
+        newShippingAddress: editingShippingAddressId
+          ? null
+          : newShippingAddress.label
+            ? newShippingAddress
+            : null,
+        newBillingAddress: editingBillingAddressId
+          ? null
+          : newBillingAddress.NIK
+            ? newBillingAddress
+            : null,
+        // Untuk update alamat yang sedang diedit
+        updatedShippingAddress: editingShippingAddressId
+          ? {
+              id: editingShippingAddressId,
+              ...newShippingAddress,
+            }
+          : null,
+        updatedBillingAddress: editingBillingAddressId
+          ? {
+              id: editingBillingAddressId,
+              ...newBillingAddress,
+            }
+          : null,
+      };
+
+      console.log("Sending profile update data:", profileUpdateData);
+
+      // Kirim semua data sekaligus ke API
+      const result = await updateUserProfileClient(userId, profileUpdateData);
+
       if (result.success) {
         alert("Profile updated successfully!");
-        await loadUserData(); // Refresh data
+
+        // Reset forms
+        setNewShippingAddress({
+          label: "",
+          address_line: "",
+          city: "",
+          postal_code: "",
+          is_default: false,
+        });
+        setNewBillingAddress({
+          NIK: "",
+          NPWP: "",
+          is_default: false,
+        });
+        setEditingShippingAddressId(null);
+        setEditingBillingAddressId(null);
+
+        // Refresh semua data
+        await Promise.all([
+          loadUserData(),
+          getShippingAddresses(),
+          getBillingAddresses(),
+        ]);
       } else {
         throw new Error(result.message || "Failed to update profile");
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert(error.message || "Failed to update profile");
+      alert(error.message || "Failed to update profile. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -212,18 +280,13 @@ export default function Profile() {
     }));
   };
 
-  // Handle input changes untuk password
-  const handlePasswordChange = (e) => {
-    const { name, value } = e.target;
-    setPasswordData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // Handle update password
+  // Handle password update (tetap terpisah)
   const handleUpdatePassword = async () => {
-    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+    if (
+      !passwordData.currentPassword ||
+      !passwordData.newPassword ||
+      !passwordData.confirmPassword
+    ) {
       alert("Please fill in all password fields");
       return;
     }
@@ -243,7 +306,7 @@ export default function Profile() {
         passwordData.currentPassword,
         passwordData.newPassword
       );
-      
+
       if (result.success) {
         alert("Password updated successfully!");
         setPasswordData({
@@ -260,54 +323,7 @@ export default function Profile() {
     }
   };
 
-  // Shipping Address Handlers
-  const handleAddShippingAddress = async () => {
-    if (!newShippingAddress.label.trim()) {
-      alert("Label is required for shipping address");
-      return;
-    }
-    if (!newShippingAddress.address_line.trim()) {
-      alert("Address line is required");
-      return;
-    }
-
-    try {
-      let result;
-      
-      if (editingShippingAddressId) {
-        // Update existing address
-        result = await updateAddressClient(editingShippingAddressId, newShippingAddress);
-      } else {
-        // Create new address
-        result = await createAddressClient(newShippingAddress);
-      }
-      
-      if (result.success) {
-        // Refresh addresses dari API
-        await getShippingAddresses();
-        
-        alert(editingShippingAddressId ? 
-          "Shipping address updated successfully!" : 
-          "Shipping address added successfully!");
-        
-        // Reset form
-        setNewShippingAddress({
-          label: "",
-          address_line: "",
-          city: "",
-          postal_code: "",
-          is_default: false,
-        });
-        setEditingShippingAddressId(null);
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      console.error("Error saving shipping address:", error);
-      alert(error.message || "Failed to save shipping address");
-    }
-  };
-
+  // Handler untuk alamat (untuk editing inline)
   const handleEditShippingAddress = (address) => {
     setNewShippingAddress({
       label: address.label,
@@ -319,90 +335,6 @@ export default function Profile() {
     setEditingShippingAddressId(address.id);
   };
 
-  const handleUpdateShippingAddressDefault = async (id, isDefault) => {
-    try {
-      const address = userData.shippingAddresses.find(addr => addr.id === id);
-      if (!address) return;
-
-      const result = await updateAddressClient(id, {
-        ...address,
-        is_default: !isDefault
-      });
-      
-      if (result.success) {
-        await getShippingAddresses();
-        alert("Shipping address updated successfully!");
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      console.error("Error updating shipping address:", error);
-      alert(error.message || "Failed to update shipping address");
-    }
-  };
-
-  const handleRemoveShippingAddress = async (id) => {
-    if (!confirm("Are you sure you want to remove this shipping address?"))
-      return;
-
-    try {
-      const result = await deleteAddressClient(id);
-      
-      if (result.success) {
-        // Refresh addresses dari API
-        await getShippingAddresses();
-        alert("Shipping address removed successfully!");
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      console.error("Error removing shipping address:", error);
-      alert(error.message || "Failed to remove shipping address");
-    }
-  };
-
-  // Billing Address Handlers
-  const handleAddBillingAddress = async () => {
-    if (!newBillingAddress.NIK.trim()) {
-      alert("NIK is required for billing address");
-      return;
-    }
-
-    try {
-      let result;
-      
-      if (editingBillingAddressId) {
-        // Update existing billing address
-        result = await updateBillingAddressClient(editingBillingAddressId, newBillingAddress);
-      } else {
-        // Create new billing address
-        result = await createBillingAddressClient(newBillingAddress);
-      }
-      
-      if (result.success) {
-        // Refresh billing addresses
-        await loadUserData();
-        
-        alert(editingBillingAddressId ?
-          "Billing information updated successfully!" :
-          "Billing information added successfully!");
-        
-        // Reset form
-        setNewBillingAddress({
-          NIK: "",
-          NPWP: "",
-          is_default: false,
-        });
-        setEditingBillingAddressId(null);
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      console.error("Error saving billing address:", error);
-      alert(error.message || "Failed to save billing information");
-    }
-  };
-
   const handleEditBillingAddress = (address) => {
     setNewBillingAddress({
       NIK: address.NIK,
@@ -410,47 +342,6 @@ export default function Profile() {
       is_default: address.is_default,
     });
     setEditingBillingAddressId(address.id);
-  };
-
-  const handleUpdateBillingAddressDefault = async (id, isDefault) => {
-    try {
-      const address = userData.billingAddresses.find(addr => addr.id === id);
-      if (!address) return;
-
-      const result = await updateBillingAddressClient(id, {
-        ...address,
-        is_default: !isDefault
-      });
-      
-      if (result.success) {
-        await loadUserData();
-        alert("Billing information updated successfully!");
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      console.error("Error updating billing address:", error);
-      alert(error.message || "Failed to update billing information");
-    }
-  };
-
-  const handleRemoveBillingAddress = async (id) => {
-    if (!confirm("Are you sure you want to remove this billing information?"))
-      return;
-
-    try {
-      const result = await deleteBillingAddressClient(id);
-      
-      if (result.success) {
-        await loadUserData();
-        alert("Billing information removed successfully!");
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      console.error("Error removing billing address:", error);
-      alert(error.message || "Failed to remove billing information");
-    }
   };
 
   // Clear form functions
@@ -492,7 +383,7 @@ export default function Profile() {
               My Profile
             </h1>
 
-            <form onSubmit={handleSubmit}>  
+            <form onSubmit={handleSubmit}>
               {/* Basic Information */}
               <div className="mb-10">
                 <h2 className="text-lg font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-200">
@@ -522,14 +413,8 @@ export default function Profile() {
                       type="email"
                       name="email"
                       value={userData.email}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 cursor-not-allowed"
                       readOnly
-                      style={{
-                        backgroundColor: "#f9fafb",
-                        cursor: "not-allowed",
-                      }}
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Email cannot be changed
@@ -566,7 +451,12 @@ export default function Profile() {
                       type="password"
                       name="currentPassword"
                       value={passwordData.currentPassword}
-                      onChange={handlePasswordChange}
+                      onChange={(e) =>
+                        setPasswordData((prev) => ({
+                          ...prev,
+                          currentPassword: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -579,7 +469,12 @@ export default function Profile() {
                       type="password"
                       name="newPassword"
                       value={passwordData.newPassword}
-                      onChange={handlePasswordChange}
+                      onChange={(e) =>
+                        setPasswordData((prev) => ({
+                          ...prev,
+                          newPassword: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -592,7 +487,12 @@ export default function Profile() {
                       type="password"
                       name="confirmPassword"
                       value={passwordData.confirmPassword}
-                      onChange={handlePasswordChange}
+                      onChange={(e) =>
+                        setPasswordData((prev) => ({
+                          ...prev,
+                          confirmPassword: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -641,24 +541,8 @@ export default function Profile() {
                                 Default
                               </span>
                             )}
-                            <p className="text-xs text-gray-500 mt-1">
-                              ID: {address.id}
-                            </p>
                           </div>
                           <div className="flex space-x-2">
-                            <button
-                              type="button"
-                              onClick={() => 
-                                handleUpdateShippingAddressDefault(address.id, address.is_default)
-                              }
-                              className={`px-3 py-1 text-sm rounded-md ${
-                                address.is_default
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                              }`}
-                            >
-                              {address.is_default ? "Default" : "Set Default"}
-                            </button>
                             <button
                               type="button"
                               onClick={() => handleEditShippingAddress(address)}
@@ -666,20 +550,11 @@ export default function Profile() {
                             >
                               Edit
                             </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleRemoveShippingAddress(address.id)
-                              }
-                              className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200"
-                            >
-                              Remove
-                            </button>
                           </div>
                         </div>
                         <p className="text-gray-600">{address.address_line}</p>
                         <p className="text-gray-600">
-                          {address.city}{" "}
+                          {address.city}
                           {address.postal_code && `, ${address.postal_code}`}
                         </p>
                       </div>
@@ -702,17 +577,16 @@ export default function Profile() {
                       <p className="mt-4 text-gray-500">
                         No shipping addresses added yet.
                       </p>
-                      <p className="text-sm text-gray-400 mt-1">
-                        Add your first shipping address below
-                      </p>
                     </div>
                   )}
                 </div>
 
-                {/* Add/Edit Shipping Address */}
+                {/* Add/Edit Shipping Address Form */}
                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                   <h3 className="text-md font-semibold text-gray-800 mb-4">
-                    {editingShippingAddressId ? "Edit Shipping Address" : "Add New Shipping Address"}
+                    {editingShippingAddressId
+                      ? "Edit Shipping Address"
+                      : "Add New Shipping Address"}
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -813,21 +687,11 @@ export default function Profile() {
                   <div className="flex space-x-3">
                     <button
                       type="button"
-                      onClick={handleAddShippingAddress}
-                      className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      onClick={clearShippingForm}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                     >
-                      {editingShippingAddressId ? "Update Address" : "Add Shipping Address"}
+                      {editingShippingAddressId ? "Cancel Edit" : "Clear Form"}
                     </button>
-
-                    {(newShippingAddress.label || editingShippingAddressId) && (
-                      <button
-                        type="button"
-                        onClick={clearShippingForm}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                      >
-                        {editingShippingAddressId ? "Cancel Edit" : "Clear Form"}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -860,32 +724,10 @@ export default function Profile() {
                           <div className="flex space-x-2">
                             <button
                               type="button"
-                              onClick={() => 
-                                handleUpdateBillingAddressDefault(address.id, address.is_default)
-                              }
-                              className={`px-3 py-1 text-sm rounded-md ${
-                                address.is_default
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                              }`}
-                            >
-                              {address.is_default ? "Default" : "Set Default"}
-                            </button>
-                            <button
-                              type="button"
                               onClick={() => handleEditBillingAddress(address)}
                               className="px-3 py-1 text-sm bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200"
                             >
                               Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleRemoveBillingAddress(address.id)
-                              }
-                              className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200"
-                            >
-                              Remove
                             </button>
                           </div>
                         </div>
@@ -908,10 +750,12 @@ export default function Profile() {
                   )}
                 </div>
 
-                {/* Add/Edit Billing Address */}
+                {/* Add/Edit Billing Address Form */}
                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                   <h3 className="text-md font-semibold text-gray-800 mb-4">
-                    {editingBillingAddressId ? "Edit Billing Information" : "Add New Billing Information"}
+                    {editingBillingAddressId
+                      ? "Edit Billing Information"
+                      : "Add New Billing Information"}
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -976,21 +820,11 @@ export default function Profile() {
                   <div className="flex space-x-3">
                     <button
                       type="button"
-                      onClick={handleAddBillingAddress}
-                      className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      onClick={clearBillingForm}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                     >
-                      {editingBillingAddressId ? "Update Billing Information" : "Add Billing Information"}
+                      {editingBillingAddressId ? "Cancel Edit" : "Clear Form"}
                     </button>
-
-                    {(newBillingAddress.NIK || editingBillingAddressId) && (
-                      <button
-                        type="button"
-                        onClick={clearBillingForm}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                      >
-                        {editingBillingAddressId ? "Cancel Edit" : "Clear Form"}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1029,7 +863,7 @@ export default function Profile() {
                       Saving...
                     </span>
                   ) : (
-                    "Save Profile"
+                    "Save All Profile Changes"
                   )}
                 </button>
               </div>
