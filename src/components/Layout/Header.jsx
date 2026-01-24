@@ -63,19 +63,16 @@ const Header = () => {
       const res = await getCustomerData();
       setUserId(res.data.id);
     };
-    
-    
 
     const getTotalCartItems = async () => {
       const res = await getCartTotal();
       setTotalCarts(res.itemCount || 0);
     };
 
-
     const getTotalNegotiationItems = async () => {
-      const res = await getNegotiationsByUserId(userId)
+      const res = await getNegotiationsByUserId(userId);
       setTotalNegotiations(res.length || 0);
-    }
+    };
 
     fetchData();
     getTotalCartItems();
@@ -100,7 +97,7 @@ const Header = () => {
 
           <div className="relative" ref={dropdownRef}>
             <div className="flex gap-3">
-                <Link href="/negotiate">
+              <Link href="/negotiate">
                 <div className="relative">
                   <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
                     {totalNegotiations}
@@ -116,12 +113,26 @@ const Header = () => {
                   <CartIcon className="w-7 h-7" />
                 </div>
               </Link>
+              <Link href="/order">
+                <div className="relative">
+                  <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
+                    0
+                  </div>
+                  <CartIcon className="w-7 h-7" />
+                </div>
+              </Link>
               <button className="icon-button" onClick={toggleDropdown}>
                 <UserIcon className="w-7 h-7" />
               </button>
             </div>
             {dropdownOpen && (
               <div className="dropdown-menu">
+                <Link
+                  href="/profile"
+                  className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100"
+                >
+                  Profile
+                </Link>
                 <Link
                   href="/"
                   className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100"

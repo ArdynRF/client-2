@@ -3,7 +3,9 @@ import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getUserAddress } from "@/actions/cartActions";
+import ModalPaymentConfirmation from "@/components/Modal/ModalPaymentConfirmation";
+import { getUserAddress, getUserBilling } from "@/actions/cartActions";
+import { handleCheckoutAction } from "@/actions/checkoutActions";
 
 export default function DirectCheckoutPage() {
   const searchParams = useSearchParams();
@@ -19,30 +21,32 @@ export default function DirectCheckoutPage() {
   const [shippingCost, setShippingCost] = useState(15000);
   const [error, setError] = useState(null);
   const [taxRate, setTaxRate] = useState(0.1); // 10% pajak
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [orderData, setOrderData] = useState(null);
 
   // Data dummy untuk alamat, payment methods, dan shipping methods
-  const dummyAddresses = [
-    {
-      id: 1,
-      name: "Rumah",
-      recipient: "John Doe",
-      phone: "081234567890",
-      address: "Jl. Sudirman No. 123, Jakarta Selatan",
-      city: "Jakarta",
-      postalCode: "12190",
-      isPrimary: true,
-    },
-    {
-      id: 2,
-      name: "Kantor",
-      recipient: "John Doe",
-      phone: "081234567891",
-      address: "Jl. Thamrin No. 456, Jakarta Pusat",
-      city: "Jakarta",
-      postalCode: "10240",
-      isPrimary: false,
-    },
-  ];
+  // const dummyAddresses = [
+  //   {
+  //     id: 1,
+  //     name: "Rumah",
+  //     recipient: "John Doe",
+  //     phone: "081234567890",
+  //     address: "Jl. Sudirman No. 123, Jakarta Selatan",
+  //     city: "Jakarta",
+  //     postalCode: "12190",
+  //     isPrimary: true,
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Kantor",
+  //     recipient: "John Doe",
+  //     phone: "081234567891",
+  //     address: "Jl. Thamrin No. 456, Jakarta Pusat",
+  //     city: "Jakarta",
+  //     postalCode: "10240",
+  //     isPrimary: false,
+  //   },
+  // ];
 
   const dummyPaymentMethods = [
     { id: "bank_transfer", name: "Bank Transfer", icon: "🏦" },
@@ -90,51 +94,114 @@ export default function DirectCheckoutPage() {
   ];
 
   // Load data dari URL
+  // Load data dari URL
   useEffect(() => {
-    const dataParam = searchParams.get("data");
-    console.log("Data from URL:", dataParam);
+    const loadData = async () => {
+      const dataParam = searchParams.get("data");
+      // console.log("Data from URL:", dataParam);
 
-    if (dataParam) {
-      try {
-        const decodedData = JSON.parse(decodeURIComponent(dataParam));
-        setCheckoutData(decodedData);
+      if (dataParam) {
+        try {
+          const decodedData = JSON.parse(decodeURIComponent(dataParam));
+          setCheckoutData(decodedData);
 
-        // Set data alamat, payment, dan shipping methods
-        // setAddresses(dummyAddresses);
-        const primaryAddress = dummyAddresses.find((addr) => addr.isPrimary);
-        setSelectedAddress(primaryAddress || dummyAddresses[0]);
-        setPaymentMethods(dummyPaymentMethods);
-        setSelectedPaymentMethod("bank_transfer");
+          // Set payment methods dan shipping methods terlebih dahulu
+          setPaymentMethods(dummyPaymentMethods);
+          setSelectedPaymentMethod("bank_transfer");
 
-        // Set shipping methods
-        setShippingMethods(dummyShippingMethods);
-        // Default pilih reguler delivery
-        setSelectedShippingMethod("reguler");
-        setShippingCost(dummyShippingMethods[2].price);
+          setShippingMethods(dummyShippingMethods);
+          setSelectedShippingMethod("reguler");
+          setShippingCost(dummyShippingMethods[2].price);
 
-        setLoading(false);
-      } catch (error) {
-        console.error("Error parsing checkout data:", error);
-        setError("Data checkout tidak valid");
+          // Fetch alamat dari API dengan async/await
+          try {
+            const fetchAddresses = await getUserAddress();
+            const fetchedBilling = await getUserBilling();
+            // console.log("Fetched Billing Info:", fetchedBilling);
+
+            if (
+              fetchAddresses &&
+              fetchAddresses.data &&
+              fetchAddresses.data.length > 0
+            ) {
+              // Transform data dari API ke format yang diinginkan
+              const formattedAddresses = fetchAddresses.data.map((address) => ({
+                id: address.id,
+                name: address.label || `Alamat ${address.id}`,
+                recipient: "John Doe", // Default, bisa diganti dengan data user
+                phone: "081234567890", // Default
+                address: address.address_line || "",
+                city: address.city || "",
+                postalCode: address.postal_code || "",
+                isPrimary: address.is_default || false,
+              }));
+
+              // console.log("Formatted Addresses:", formattedAddresses);
+              setAddresses(formattedAddresses);
+
+              // Pilih alamat utama (default)
+              const primaryAddress = formattedAddresses.find(
+                (addr) => addr.isPrimary
+              );
+              if (primaryAddress) {
+                setSelectedAddress(primaryAddress);
+                console.log("Selected primary address:", primaryAddress);
+              } else if (formattedAddresses.length > 0) {
+                setSelectedAddress(formattedAddresses[0]);
+                console.log("Selected first address:", formattedAddresses[0]);
+              }
+            } else {
+              // Jika tidak ada alamat, gunakan alamat default
+              console.log("No addresses found, using default");
+              const defaultAddress = {
+                id: 0,
+                name: "Alamat Default",
+                recipient: "Pelanggan",
+                phone: "081234567890",
+                address: "Silakan tambahkan alamat pengiriman",
+                city: "Jakarta",
+                postalCode: "12345",
+                isPrimary: true,
+              };
+              setAddresses([defaultAddress]);
+              setSelectedAddress(defaultAddress);
+            }
+          } catch (addressError) {
+            console.error("Error fetching addresses:", addressError);
+            // Fallback ke alamat default
+            const fallbackAddress = {
+              id: 0,
+              name: "Alamat Default",
+              recipient: "Pelanggan",
+              phone: "081234567890",
+              address: "Silakan tambahkan alamat pengiriman",
+              city: "Jakarta",
+              postalCode: "12345",
+              isPrimary: true,
+            };
+            setAddresses([fallbackAddress]);
+            setSelectedAddress(fallbackAddress);
+          }
+
+          setLoading(false);
+        } catch (error) {
+          console.error("Error parsing checkout data:", error);
+          setError("Data checkout tidak valid");
+          setLoading(false);
+        }
+      } else {
+        setError("Tidak ada data checkout");
         setLoading(false);
       }
-    } else {
-      setError("Tidak ada data checkout");
-      setLoading(false);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const apiAddresses = async () => {
-      await getUserAddress();
     };
 
-    apiAddresses();
-  });
+    loadData();
+  }, [searchParams]);
 
   // Hitung total
   const calculateTotals = () => {
-    if (!checkoutData) return { subtotal: 0, shippingCost: 0, total: 0 };
+    if (!checkoutData)
+      return { subtotal: 0, shippingCost: 0, total: 0, taxCost: 0 };
 
     const subtotal = checkoutData.totalPrice || 0;
     const selectedShipping = shippingMethods.find(
@@ -163,11 +230,6 @@ export default function DirectCheckoutPage() {
     setSelectedAddress(address);
   };
 
-  const handleAddAddress = () => {
-    // Logic untuk tambah alamat baru
-    console.log("Add new address");
-  };
-
   const handleShippingMethodChange = (methodId) => {
     setSelectedShippingMethod(methodId);
     const selectedMethod = shippingMethods.find((m) => m.id === methodId);
@@ -192,26 +254,111 @@ export default function DirectCheckoutPage() {
       (method) => method.id === selectedShippingMethod
     );
 
-    const orderData = {
-      checkoutData,
+    // Prepare order data for modal
+    const preparedOrderData = {
+      items: [
+        {
+          cartId: Date.now(), // Generate temporary ID
+          productId: checkoutData.productId,
+          quantity: parseInt(checkoutData.quantity),
+          priceTotal: checkoutData.totalPrice,
+          color: checkoutData.color,
+          status: "active",
+          product: {
+            id: checkoutData.productId,
+            name: checkoutData.productName,
+            image: checkoutData.productImage,
+            mrp: checkoutData.unitPrice,
+            description: checkoutData.productName,
+            moq: checkoutData.moq,
+            productType: checkoutData.productType,
+          },
+        },
+      ],
       address: selectedAddress,
       paymentMethod: selectedPaymentMethod,
       shippingMethod: selectedShipping,
       subtotal,
       shippingCost: currentShippingCost,
+      tax: currentTaxCost,
       total,
+      itemIds: [Date.now()], // Temporary ID
+      checkoutData: checkoutData, // Keep original data
     };
 
-    console.log("Direct Checkout data:", orderData);
+    console.log("Direct Checkout data:", preparedOrderData);
 
-    // Simpan data ke localStorage untuk halaman berikutnya
-    localStorage.setItem("directCheckoutData", JSON.stringify(orderData));
-
-    // Redirect ke halaman konfirmasi pembayaran
-    alert("Pesanan berhasil diproses! Lanjut ke pembayaran...");
-    router.push("/payment-confirmation");
+    // Set order data and open payment modal
+    setOrderData(preparedOrderData);
+    setIsPaymentModalOpen(true);
   };
 
+  const handleConfirmPayment = async (confirmedOrderData) => {
+    try {
+      console.log(
+        "Payment confirmed, creating direct order:",
+        confirmedOrderData
+      );
+
+      // Siapkan data untuk API
+      const checkoutDataForAPI = {
+        ...confirmedOrderData,
+        orderStatus: checkoutData.isOutOfStock ? "pre_order" : "processing",
+        paymentStatus: "down_payment_paid",
+        downPayment: confirmedOrderData.total * 0.3,
+        remainingPayment: confirmedOrderData.total * 0.7,
+        orderType: checkoutData.isSampleOrder ? "sample" : "regular",
+        productDetails: checkoutData.productDetails || {},
+      };
+
+      console.log("Sending to backend:", checkoutDataForAPI);
+
+      const response = await handleCheckoutAction(checkoutDataForAPI, "direct");
+
+      if (response.success) {
+        console.log("Direct checkout successful:", response);
+
+        const existingOrders = JSON.parse(
+          localStorage.getItem("orderHistory") || "[]"
+        );
+        const newOrder = {
+          ...confirmedOrderData,
+          orderId:
+            response.orderId ||
+            response.data?.id ||
+            `ORD-DIRECT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          orderNumber: response.orderNumber,
+          orderDate: new Date().toISOString(),
+          status: checkoutData.isOutOfStock ? "pre_order" : "processing",
+          paymentStatus: "down_payment_paid",
+          downPayment: confirmedOrderData.total * 0.3,
+          remainingPayment: confirmedOrderData.total * 0.7,
+          orderType: checkoutData.isSampleOrder ? "sample" : "regular",
+          productDetails: checkoutData.productDetails || {},
+          backendId: response.data?.id,
+        };
+
+        localStorage.setItem(
+          "orderHistory",
+          JSON.stringify([newOrder, ...existingOrders])
+        );
+
+        // Clear any checkout data from localStorage
+        localStorage.removeItem("directCheckoutData");
+
+        alert(
+          `Pembayaran DP 30% berhasil! Nomor order: ${response.orderNumber}`
+        );
+        // router.push("/orders");
+      } else {
+        console.error("Direct checkout failed:", response.message);
+        alert(`Gagal membuat pesanan: ${response.message}`);
+      }
+    } catch (error) {
+      console.error("Error processing direct payment:", error);
+      alert("Terjadi kesalahan saat memproses pembayaran");
+    }
+  };
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -256,6 +403,9 @@ export default function DirectCheckoutPage() {
     productImage,
     productType,
     isOutOfStock,
+    isSampleOrder,
+    samplePrice,
+    productDetails,
   } = checkoutData;
 
   return (
@@ -272,7 +422,9 @@ export default function DirectCheckoutPage() {
                 className={`px-3 py-1 text-sm font-medium rounded-full ${
                   status === "Buy Now"
                     ? "bg-blue-100 text-blue-800"
-                    : "bg-yellow-100 text-yellow-800"
+                    : status === "Sample Order"
+                      ? "bg-purple-100 text-purple-700"
+                      : "bg-yellow-100 text-yellow-800"
                 }`}
               >
                 {status}
@@ -328,17 +480,82 @@ export default function DirectCheckoutPage() {
                           <span className="text-sm text-gray-500">
                             MOQ: {moq}
                           </span>
+                          {isSampleOrder && (
+                            <span className="text-sm text-purple-600 font-medium">
+                              Sample Order
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="text-lg font-bold text-blue-600">
-                          Rp {(quantity * unitPrice).toLocaleString("id-ID")}
+                          Rp {totalPrice?.toLocaleString("id-ID")}
                         </div>
                         <div className="text-sm text-gray-500">
                           Rp {unitPrice?.toLocaleString("id-ID")} × {quantity}
                         </div>
+                        {isSampleOrder && samplePrice && (
+                          <div className="text-xs text-purple-600">
+                            Sample Price: Rp{" "}
+                            {parseInt(samplePrice).toLocaleString("id-ID")}
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {/* Product Details */}
+                    {productDetails && (
+                      <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Detail Produk:
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                          {productDetails.weight && (
+                            <div>
+                              <span className="text-gray-600">Weight:</span>
+                              <span className="ml-2 font-medium">
+                                {productDetails.weight}
+                              </span>
+                            </div>
+                          )}
+                          {productDetails.width && (
+                            <div>
+                              <span className="text-gray-600">Width:</span>
+                              <span className="ml-2 font-medium">
+                                {productDetails.width}
+                              </span>
+                            </div>
+                          )}
+                          {productDetails.technics &&
+                            productDetails.technics.length > 0 && (
+                              <div>
+                                <span className="text-gray-600">Technics:</span>
+                                <span className="ml-2 font-medium">
+                                  {productDetails.technics.join(", ")}
+                                </span>
+                              </div>
+                            )}
+                          {productDetails.styles &&
+                            productDetails.styles.length > 0 && (
+                              <div>
+                                <span className="text-gray-600">Styles:</span>
+                                <span className="ml-2 font-medium">
+                                  {productDetails.styles.join(", ")}
+                                </span>
+                              </div>
+                            )}
+                          {productDetails.patterns &&
+                            productDetails.patterns.length > 0 && (
+                              <div>
+                                <span className="text-gray-600">Patterns:</span>
+                                <span className="ml-2 font-medium">
+                                  {productDetails.patterns.join(", ")}
+                                </span>
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Notes */}
                     {notes && (
@@ -406,11 +623,17 @@ export default function DirectCheckoutPage() {
 
               {/* Section: Alamat Pengiriman */}
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <div className="flex justify-between items-center mb-6">
+                {/* <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
                     Alamat Pengiriman
                   </h2>
-                </div>
+                  <Button
+                    onClick={() => alert("Fitur tambah alamat belum tersedia")}
+                    className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  >
+                    + Tambah Alamat Baru
+                  </Button>
+                </div> */}
 
                 <div className="space-y-4">
                   {addresses.map((address) => (
@@ -607,6 +830,11 @@ export default function DirectCheckoutPage() {
                       <p className="text-xs text-gray-400">
                         Warna: {color || "-"}
                       </p>
+                      {isSampleOrder && (
+                        <p className="text-xs text-purple-600 font-medium">
+                          Sample Order
+                        </p>
+                      )}
                     </div>
                     <span className="font-medium text-gray-900">
                       Rp {totalPrice?.toLocaleString("id-ID")}
@@ -655,9 +883,7 @@ export default function DirectCheckoutPage() {
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Total Tax</span>
-                    <span>
-                      Rp {currentTaxCost.toLocaleString("id-ID")}
-                    </span>
+                    <span>Rp {currentTaxCost.toLocaleString("id-ID")}</span>
                   </div>
 
                   <div className="border-t border-gray-200 pt-3">
@@ -668,6 +894,27 @@ export default function DirectCheckoutPage() {
                       </span>
                     </div>
                   </div>
+                </div>
+
+                {/* Down Payment Info */}
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center mb-2">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-green-600 font-bold">30%</span>
+                    </div>
+                    <h4 className="font-medium text-green-900">
+                      Down Payment Required
+                    </h4>
+                  </div>
+                  <p className="text-sm text-green-700 mb-2">
+                    Anda perlu membayar DP 30% sebesar:
+                  </p>
+                  <div className="text-xl font-bold text-green-600">
+                    Rp {(total * 0.3).toLocaleString("id-ID")}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Sisa pembayaran: Rp {(total * 0.7).toLocaleString("id-ID")}
+                  </p>
                 </div>
 
                 {/* Order Status Info */}
@@ -762,12 +1009,14 @@ export default function DirectCheckoutPage() {
                   className={`w-full text-white py-3 text-lg font-medium ${
                     isOutOfStock
                       ? "bg-yellow-600 hover:bg-yellow-700"
-                      : "bg-blue-600 hover:bg-blue-700"
+                      : "bg-green-600 hover:bg-green-700"
                   }`}
                   onClick={handleCheckout}
                   disabled={!selectedShippingMethod || !selectedPaymentMethod}
                 >
-                  {isOutOfStock ? "Konfirmasi Pre Order" : "Bayar Sekarang"}
+                  {isOutOfStock
+                    ? "Konfirmasi Pre Order"
+                    : "Lanjut ke Pembayaran DP"}
                 </Button>
 
                 {/* Security Info */}
@@ -802,6 +1051,14 @@ export default function DirectCheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Payment Confirmation */}
+      <ModalPaymentConfirmation
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        checkoutData={orderData}
+        onConfirmPayment={handleConfirmPayment}
+      />
     </div>
   );
 }

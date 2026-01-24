@@ -6,9 +6,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export async function getNegotiationsByUserId(userId) {
   try {
-    
-
-    // Validate userId
     const id = Number(userId);
     if (isNaN(id) || id <= 0) {
       console.error("Invalid user ID:", userId);
@@ -80,11 +77,6 @@ export async function handleDeleteNegotiation(negotiationIds) {
       ? negotiationIds
       : [negotiationIds];
 
-    
-
-  
-  
-
     const response = await fetch(`${BASE_URL}/api/negotiate`, {
       method: "DELETE",
       headers: {
@@ -132,4 +124,38 @@ export async function handleDeleteNegotiationWithCallback(
   }
 
   return result;
+}
+
+export async function handleRenegotiateSubmitAPI(data) {
+  try {
+    const response = await fetch(`${BASE_URL}/api/negotiations/renegotiate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      return {
+        success: true,
+        data: result.data,
+        message: result.message
+      };
+    } else {
+      const errorData = await response.json();
+      return {
+        success: false,
+        error: errorData.error || 'Failed to submit renegotiation',
+        details: errorData.details
+      };
+    }
+  } catch (error) {
+    console.error('Renegotiate API error:', error);
+    return {
+      success: false,
+      error: 'Network error. Please try again.'
+    };
+  }
 }

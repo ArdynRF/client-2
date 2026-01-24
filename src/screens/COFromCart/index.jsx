@@ -3,7 +3,11 @@ import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { handleCartCheckout } from "@/actions/cartActions";
+import { getUserBilling, handleCartCheckout } from "@/actions/cartActions";
+import ModalPaymentConfirmation from "@/components/Modal/ModalPaymentConfirmation";
+import { getUserAddress } from "@/actions/cartActions";
+import { getCustomerData } from "@/actions/authActions";
+import { handleCheckoutAction } from "@/actions/checkoutActions";
 
 export default function COFromCart() {
   // State untuk data checkout
@@ -22,29 +26,33 @@ export default function COFromCart() {
   const [error, setError] = useState(null);
   const taxRate = 0.1;
 
+  // State untuk modal pembayaran
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [checkoutData, setCheckoutData] = useState(null);
+
   // Data dummy untuk alamat, payment methods, dan shipping methods
-  const dummyAddresses = [
-    {
-      id: 1,
-      name: "Rumah",
-      recipient: "John Doe",
-      phone: "081234567890",
-      address: "Jl. Sudirman No. 123, Jakarta Selatan",
-      city: "Jakarta",
-      postalCode: "12190",
-      isPrimary: true,
-    },
-    {
-      id: 2,
-      name: "Kantor",
-      recipient: "John Doe",
-      phone: "081234567891",
-      address: "Jl. Thamrin No. 456, Jakarta Pusat",
-      city: "Jakarta",
-      postalCode: "10240",
-      isPrimary: false,
-    },
-  ];
+  // const dummyAddresses = [
+  //   {
+  //     id: 1,
+  //     name: "Rumah",
+  //     recipient: "John Doe",
+  //     phone: "081234567890",
+  //     address: "Jl. Sudirman No. 123, Jakarta Selatan",
+  //     city: "Jakarta",
+  //     postalCode: "12190",
+  //     isPrimary: true,
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Kantor",
+  //     recipient: "John Doe",
+  //     phone: "081234567891",
+  //     address: "Jl. Thamrin No. 456, Jakarta Pusat",
+  //     city: "Jakarta",
+  //     postalCode: "10240",
+  //     isPrimary: false,
+  //   },
+  // ];
 
   const dummyPaymentMethods = [
     { id: "bank_transfer", name: "Bank Transfer", icon: "🏦" },
@@ -55,7 +63,6 @@ export default function COFromCart() {
     { id: "cod", name: "Cash on Delivery", icon: "💰" },
   ];
 
-  // Data metode pengiriman dengan estimasi waktu dan harga
   const dummyShippingMethods = [
     {
       id: "instant",
@@ -119,10 +126,10 @@ export default function COFromCart() {
     total,
     taxCost: currentTaxCost,
   } = calculateTotals();
-  // Load data dari API
+
   useEffect(() => {
     const ids = searchParams.getAll("itemIds");
-    console.log("Item IDs from URL:", ids);
+    // console.log("Item IDs from URL:", ids);
 
     if (ids.length > 0) {
       setItemIds(ids);
@@ -138,21 +145,36 @@ export default function COFromCart() {
 
     try {
       const result = await handleCartCheckout(ids);
-      console.log("Fetched items for checkout:", result);
+      const fetchedAddress = await getUserAddress();
+      const fetchedUser = await getCustomerData();
+      const fetchedBilling = await getUserBilling();
+      // console.log("Fetched user address:", fetchedAddress);
+      // console.log("Fetched items for checkout:", result);
+      // console.log("Fetched user data:", fetchedUser);
+      // console.log("Fetched user billing:", fetchedBilling);
 
       if (result.success && result.data.length > 0) {
         setSelectedItems(result.data);
 
-        // Set data alamat, payment, dan shipping methods
-        setAddresses(dummyAddresses);
-        const primaryAddress = dummyAddresses.find((addr) => addr.isPrimary);
-        setSelectedAddress(primaryAddress || dummyAddresses[0]);
+        const formattedAddresses = fetchedAddress.data.map((address) => ({
+          id: address.id,
+          name: address.label || `Alamat ${address.id}`,
+          recipient: fetchedUser.data.name || "John Doe",
+          phone: fetchedUser.data.phone_number || "081234567890",
+          address: address.address_line || "",
+          city: address.city || "",
+          postalCode: address.postal_code || "",
+          isPrimary: address.is_default || false,
+        }));
+        // console.log(formattedAddresses);
+        setAddresses(formattedAddresses);
+        const primaryAddress = formattedAddresses.find(
+          (addr) => addr.isPrimary
+        );
+        setSelectedAddress(primaryAddress || formattedAddresses[0]);
         setPaymentMethods(dummyPaymentMethods);
         setSelectedPaymentMethod("bank_transfer");
-
-        // Set shipping methods
         setShippingMethods(dummyShippingMethods);
-        // Default pilih reguler delivery
         setSelectedShippingMethod("reguler");
       } else {
         setError(result.message || "Tidak ada item yang ditemukan");
@@ -219,20 +241,76 @@ export default function COFromCart() {
       shippingMethod: selectedShipping,
       subtotal,
       shippingCost: currentShippingCost,
+      tax: currentTaxCost,
       total,
       itemIds: selectedItems.map((item) => item.cartId),
     };
 
     console.log("Checkout data:", orderData);
 
-    // Simpan data ke localStorage untuk halaman berikutnya
-    localStorage.setItem("checkoutData", JSON.stringify(orderData));
-
-    // Redirect ke halaman konfirmasi pembayaran
-    alert("Pesanan berhasil diproses! Lanjut ke pembayaran...");
-    router.push("/payment-confirmation");
+    // Set checkout data and open payment modal
+    setCheckoutData(orderData);
+    setIsPaymentModalOpen(true);
   };
 
+  const handleConfirmPayment = async (orderData) => {
+    try {
+      console.log("Payment confirmed, creating order:", orderData);
+
+      const checkoutDataForAPI = {
+        ...orderData,
+        orderStatus: "processing",
+        paymentStatus: "down_payment_paid",
+        downPayment: orderData.total * 0.3,
+        remainingPayment: orderData.total * 0.7,
+      };
+
+      console.log("Sending to backend:", checkoutDataForAPI);
+
+      const response = await handleCheckoutAction(checkoutDataForAPI, "cart");
+
+      if (response.success) {
+        console.log("Checkout successful:", response);
+
+        const existingOrders = JSON.parse(
+          localStorage.getItem("orderHistory") || "[]"
+        );
+        const newOrder = {
+          ...orderData,
+          orderId:
+            response.orderId ||
+            response.data?.id ||
+            `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          orderNumber: response.orderNumber,
+          orderDate: new Date().toISOString(),
+          status: "processing",
+          paymentStatus: "down_payment_paid",
+          downPayment: orderData.total * 0.3,
+          remainingPayment: orderData.total * 0.7,
+          backendId: response.data?.id, 
+        };
+
+        localStorage.setItem(
+          "orderHistory",
+          JSON.stringify([newOrder, ...existingOrders])
+        );
+
+        const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]");
+        const updatedCartItems = cartItems.filter(
+          (item) => !orderData.itemIds.includes(item.id)
+        );
+        localStorage.setItem("cartItems", JSON.stringify(updatedCartItems));
+        alert(`Pesanan berhasil dibuat! Nomor order: ${response.orderNumber}`);
+        // router.push("/orders");
+      } else {
+        console.error("Checkout failed:", response.message);
+        alert(`Gagal membuat pesanan: ${response.message}`);
+      }
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      alert("Terjadi kesalahan saat memproses pembayaran");
+    }
+  };
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -508,7 +586,7 @@ export default function COFromCart() {
                               </p>
                             )}
                           </div>
-                          {/* <button
+                          <button
                             onClick={() => handleRemoveItem(item.cartId)}
                             className="text-gray-400 hover:text-red-500"
                           >
@@ -525,7 +603,7 @@ export default function COFromCart() {
                                 d="M6 18L18 6M6 6l12 12"
                               />
                             </svg>
-                          </button> */}
+                          </button>
                         </div>
                         <div className="flex justify-between items-center mt-2">
                           <div className="flex items-center space-x-2">
@@ -581,14 +659,11 @@ export default function COFromCart() {
                       <span className="text-sm text-gray-600">
                         {Math.round(taxRate * 100)}%
                       </span>
-                      
                     </div>
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Total Pajak</span>
-                    <span>
-                      Rp {currentTaxCost.toLocaleString("id-ID")}
-                    </span>
+                    <span>Rp {currentTaxCost.toLocaleString("id-ID")}</span>
                   </div>
 
                   <div className="border-t border-gray-200 pt-3">
@@ -641,6 +716,27 @@ export default function COFromCart() {
                   </div>
                 )}
 
+                {/* Down Payment Info */}
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center mb-2">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-green-600 font-bold">30%</span>
+                    </div>
+                    <h4 className="font-medium text-green-900">
+                      Down Payment Required
+                    </h4>
+                  </div>
+                  <p className="text-sm text-green-700 mb-2">
+                    Anda perlu membayar DP 30% sebesar:
+                  </p>
+                  <div className="text-xl font-bold text-green-600">
+                    Rp {(total * 0.3).toLocaleString("id-ID")}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Sisa pembayaran: Rp {(total * 0.7).toLocaleString("id-ID")}
+                  </p>
+                </div>
+
                 {/* Terms and Conditions */}
                 <div className="mb-6">
                   <label className="flex items-start space-x-2">
@@ -661,7 +757,7 @@ export default function COFromCart() {
 
                 {/* Checkout Button */}
                 <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-medium"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg font-medium"
                   onClick={handleCheckout}
                   disabled={
                     selectedItems.length === 0 ||
@@ -669,7 +765,7 @@ export default function COFromCart() {
                     !selectedPaymentMethod
                   }
                 >
-                  Bayar Sekarang
+                  Lanjut ke Pembayaran DP
                 </Button>
 
                 {/* Security Info */}
@@ -694,6 +790,14 @@ export default function COFromCart() {
           </div>
         </div>
       </div>
+
+      {/* Modal Payment Confirmation */}
+      <ModalPaymentConfirmation
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        checkoutData={checkoutData}
+        onConfirmPayment={handleConfirmPayment}
+      />
     </div>
   );
 }

@@ -1,27 +1,32 @@
-// Di NegotiationsPage component
 "use client";
 
 import { useState, useEffect } from "react";
 import NegotiationList from "@/components/ui/NegotiationList";
 import Button from "@/components/ui/Button";
+import ModalRenegotiate from "@/components/Modal/ModalRenegotiate";
 import { getCustomerData } from "@/actions/authActions";
 import { getNegotiationsByUserId } from "@/actions/negotiationActions";
 import { handleDeleteNegotiation } from "@/actions/negotiationActions";
+import { handleMoveToCartAction } from "@/actions/cartActions";
+import { handleRenegotiateSubmitAPI } from "@/actions/negotiationActions"; // IMPORT FUNCTION INI
 
 export default function NegotiationsPage() {
   const [allNegotiations, setAllNegotiations] = useState([]);
   const [filteredNegotiations, setFilteredNegotiations] = useState([]);
   const [selectedNegotiations, setSelectedNegotiations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [activeFilter, setActiveFilter] = useState("all"); // "all", "pending", "accepted", "rejected", "expired"
+  const [activeFilter, setActiveFilter] = useState("all");
+
+  // State untuk modal renegotiate
+  const [isRenegotiateModalOpen, setIsRenegotiateModalOpen] = useState(false);
+  const [selectedNegotiation, setSelectedNegotiation] = useState(null);
 
   const loadNegotiateData = async () => {
     try {
-       const customer = await getCustomerData();
+      const customer = await getCustomerData();
       const userId = customer.data.id;
       const items = await getNegotiationsByUserId(userId);
-      
+
       setAllNegotiations(items || []);
     } catch (error) {
       console.error("Failed to load negotiations:", error);
@@ -30,7 +35,6 @@ export default function NegotiationsPage() {
       setLoading(false);
     }
   };
-
 
   // Load negotiations data
   useEffect(() => {
@@ -61,18 +65,20 @@ export default function NegotiationsPage() {
     rejected: allNegotiations.filter((item) => item.status === "rejected")
       .length,
     expired: allNegotiations.filter((item) => item.status === "expired").length,
+    completed: allNegotiations.filter((item) => item.status === "completed")
+      .length,
   };
 
   // Status filter buttons configuration
   const filterButtons = [
     {
       id: "all",
-      label: "Total",
+      label: "All",
       count: stats.total,
-      bgColor: "bg-white",
-      textColor: "text-gray-900",
+      bgColor: "bg-gray-50",
+      textColor: "text-gray-700",
       borderColor: "border-gray-200",
-      hoverColor: "hover:bg-gray-50",
+      hoverColor: "hover:bg-gray-100",
     },
     {
       id: "pending",
@@ -110,8 +116,128 @@ export default function NegotiationsPage() {
       borderColor: "border-gray-300",
       hoverColor: "hover:bg-gray-200",
     },
+    {
+      id: "completed",
+      label: "Completed",
+      count: stats.completed,
+      bgColor: "bg-blue-50",
+      textColor: "text-blue-700",
+      borderColor: "border-blue-200",
+      hoverColor: "hover:bg-blue-100",
+    },
   ];
 
+  const handleMoveToCart = async (id) => {
+    const response = await handleMoveToCartAction(id);
+    if (response.success) {
+      alert("Negotiation moved to cart successfully.");
+      // Refresh negotiations list
+      loadNegotiateData();
+    } else {
+      alert("Failed to move negotiation to cart.");
+    }
+  };
+
+  // Fungsi untuk membuka modal renegotiate
+  const handleOpenRenegotiateModal = (negotiation) => {
+    const productData = negotiation.product || {};
+
+    // Format data untuk modal
+    setSelectedNegotiation({
+      negotiationId: negotiation.id,
+      quantity: negotiation.quantity,
+      offeredPrice: negotiation.offeredPrice,
+      color: negotiation.color,
+      notes: negotiation.notes || "",
+      status: negotiation.status,
+      productName: productData.name || "Product",
+      productId: negotiation.productId,
+
+      // Data tambahan untuk modal
+      colorStocks: productData.colorStocks || [],
+      moq: productData.moq ? parseInt(productData.moq) || 1 : 1,
+      priceTiers: productData.priceTiers || [],
+
+      // Original offer info
+      originalOffer: {
+        quantity: negotiation.quantity,
+        price: negotiation.offeredPrice,
+        total: negotiation.totalOfferedAmount,
+        color: negotiation.color,
+        status: negotiation.status,
+      },
+    });
+
+    console.log("Selected negotiation data:", {
+      negotiationId: negotiation.id,
+      productName: productData.name,
+      colorStocks: productData.colorStocks,
+      priceTiers: productData.priceTiers,
+    });
+
+    setIsRenegotiateModalOpen(true);
+  };
+
+  // PERBAIKAN: Fungsi untuk submit renegotiate
+  const handleRenegotiateSubmit = async (data) => {
+    try {
+      // Cek apakah ada selectedNegotiation
+      if (!selectedNegotiation) {
+        alert("No negotiation selected. Please try again.");
+        return;
+      }
+
+      // Validasi data sebelum dikirim
+      if (!data.quantity || data.quantity <= 0) {
+        alert("Please enter a valid quantity");
+        return;
+      }
+
+      if (!data.price || data.price <= 0) {
+        alert("Please enter a valid price");
+        return;
+      }
+
+      // Siapkan data untuk API
+      const apiData = {
+        negotiationId: selectedNegotiation.negotiationId,
+        quantity: parseInt(data.quantity),
+        offeredPrice: parseFloat(data.price),
+        color: data.color || selectedNegotiation.color || null,
+        notes: data.notes || "",
+        productId: selectedNegotiation.productId,
+      };
+
+      console.log("Sending renegotiation data:", apiData);
+
+      // Panggil API function (GANTI DI SINI)
+      const response = await handleRenegotiateSubmitAPI(apiData);
+
+      if (response.success) {
+        alert(response.message || "Renegotiation request sent successfully.");
+
+        // Refresh negotiations list
+        loadNegotiateData();
+
+        // Reset modal state
+        setIsRenegotiateModalOpen(false);
+        setSelectedNegotiation(null);
+
+        // Optional: Show success notification
+        console.log("Renegotiation successful:", response.data);
+      } else {
+        alert(response.error || "Failed to send renegotiation request.");
+        if (response.details) {
+          console.error("Renegotiation error details:", response.details);
+        }
+      }
+    } catch (error) {
+      console.error("Renegotiate submit error:", error);
+      alert("An unexpected error occurred. Please try again.");
+    }
+  };
+
+  // Fungsi untuk menghapus negotiation
   const handleDeleteNegotiations = async () => {
     if (selectedNegotiations.length === 0) return;
 
@@ -126,11 +252,10 @@ export default function NegotiationsPage() {
       if (response.success) {
         alert("Selected negotiations deleted successfully.");
         // Refresh negotiations list
-        const customer = await getCustomerData();
-        const userId = customer.data.id;
-        const negotiationsData = await getNegotiationsByUserId(userId);
-        setAllNegotiations(negotiationsData || []);
+        loadNegotiateData();
         setSelectedNegotiations([]);
+      } else {
+        alert("Failed to delete negotiations.");
       }
     } catch (error) {
       console.error("Failed to delete negotiations:", error);
@@ -163,7 +288,28 @@ export default function NegotiationsPage() {
     });
   };
 
-  // ... rest of your functions (delete, move to cart, etc.)
+  // Handle reject negotiation
+  const handleRejectNegotiation = async (id) => {
+    if (!confirm("Are you sure you want to reject this negotiation?")) return;
+
+    try {
+      const response = await fetch("/api/negotiations/reject", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ negotiationId: id }),
+      });
+
+      if (response.ok) {
+        alert("Negotiation rejected successfully.");
+        loadNegotiateData();
+      } else {
+        alert("Failed to reject negotiation.");
+      }
+    } catch (error) {
+      console.error("Reject error:", error);
+      alert("Error rejecting negotiation.");
+    }
+  };
 
   if (loading) {
     return (
@@ -196,7 +342,7 @@ export default function NegotiationsPage() {
       ) : (
         <>
           {/* Filter Stats as Clickable Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
             {filterButtons.map((filter) => (
               <button
                 key={filter.id}
@@ -322,7 +468,7 @@ export default function NegotiationsPage() {
                   onSelect={() => handleSelectItem(item.id)}
                   onMoveToCart={() => handleMoveToCart(item.id)}
                   onReject={() => handleRejectNegotiation(item.id)}
-                  onRenegotiate={() => handleRenegotiate(item.id)}
+                  onRenegotiate={() => handleOpenRenegotiateModal(item)}
                   onRemoveSuccess={loadNegotiateData}
                 />
               ))}
@@ -344,7 +490,7 @@ export default function NegotiationsPage() {
 
                 <div className="space-x-3">
                   <Button
-                    className="border border-gray-300 text-white hover:bg-gray-50 hover:text-gray-700"
+                    className="bg-red-100 text-red-700 hover:bg-red-200 border border-red-300"
                     onClick={handleDeleteNegotiations}
                   >
                     Delete Selected
@@ -355,6 +501,18 @@ export default function NegotiationsPage() {
           )}
         </>
       )}
+
+      {/* Modal Renegotiate */}
+      <ModalRenegotiate
+        isOpen={isRenegotiateModalOpen}
+        onClose={() => {
+          setIsRenegotiateModalOpen(false);
+          setSelectedNegotiation(null);
+        }}
+        onSubmit={handleRenegotiateSubmit}
+        initialData={selectedNegotiation || {}}
+        title="Renegotiate Offer"
+      />
     </div>
   );
 }
