@@ -30,15 +30,17 @@ export async function getUserProfileClient(userId) {
 }
 
 // Update user profile
-export async function updateUserProfileClient(userData) {
+export async function updateUserProfileClient(UserId, userData) {
   try {
+
+    if (!UserId) {
     // Ambil userId secara otomatis
     const customer = await getCustomerData();
     if (!customer?.data?.id) {
       throw new Error("User not authenticated");
     }
-
-    const userId = customer.data.id;
+    UserId = customer.data.id;
+  }
 
     const res = await fetch(`${BASE_URL}/api/profile`, {
       method: "PUT",
@@ -46,7 +48,6 @@ export async function updateUserProfileClient(userData) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        userId,
         ...userData,
       }),
     });
