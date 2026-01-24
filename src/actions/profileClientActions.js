@@ -30,14 +30,25 @@ export async function getUserProfileClient(userId) {
 }
 
 // Update user profile
-export async function updateUserProfileClient(userId, userData) {
+export async function updateUserProfileClient(userData) {
   try {
+    // Ambil userId secara otomatis
+    const customer = await getCustomerData();
+    if (!customer?.data?.id) {
+      throw new Error("User not authenticated");
+    }
+
+    const userId = customer.data.id;
+
     const res = await fetch(`${BASE_URL}/api/profile`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(userData),
+      body: JSON.stringify({
+        userId,
+        ...userData,
+      }),
     });
 
     if (!res.ok) {
@@ -104,13 +115,16 @@ export async function createAddressClient(addressData) {
 
 export async function updateAddressClient(addressId, addressData) {
   try {
-    const res = await fetch(`${BASE_URL}/api/profile/address/shipping?id=${addressId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(addressData),
-    });
+    const res = await fetch(
+      `${BASE_URL}/api/profile/address/shipping?id=${addressId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(addressData),
+      }
+    );
 
     if (!res.ok) {
       const errorData = await res.json();
@@ -127,12 +141,15 @@ export async function updateAddressClient(addressId, addressData) {
 
 export async function deleteAddressClient(addressId) {
   try {
-    const res = await fetch(`${BASE_URL}/api/profile/address/shipping?id=${addressId}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    const res = await fetch(
+      `${BASE_URL}/api/profile/address/shipping?id=${addressId}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     if (!res.ok) {
       const errorData = await res.json();
@@ -173,13 +190,16 @@ export async function createBillingAddressClient(billingData) {
 
 export async function updateBillingAddressClient(billingId, billingData) {
   try {
-    const res = await fetch(`${BASE_URL}/api/profile/address/billing?id=${billingId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(billingData),
-    });
+    const res = await fetch(
+      `${BASE_URL}/api/profile/address/billing?id=${billingId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(billingData),
+      }
+    );
 
     if (!res.ok) {
       const errorData = await res.json();
@@ -196,12 +216,15 @@ export async function updateBillingAddressClient(billingId, billingData) {
 
 export async function deleteBillingAddressClient(billingId) {
   try {
-    const res = await fetch(`${BASE_URL}/api/profile/address/billing?id=${billingId}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    const res = await fetch(
+      `${BASE_URL}/api/profile/address/billing?id=${billingId}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     if (!res.ok) {
       const errorData = await res.json();
