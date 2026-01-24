@@ -13,7 +13,9 @@ export default function DirectCheckoutPage() {
   const [checkoutData, setCheckoutData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [addresses, setAddresses] = useState([]);
+  const [billing, setBilling] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
+  const [selectedBilling, setSelectedBilling] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [shippingMethods, setShippingMethods] = useState([]);
@@ -23,30 +25,6 @@ export default function DirectCheckoutPage() {
   const [taxRate, setTaxRate] = useState(0.1); // 10% pajak
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [orderData, setOrderData] = useState(null);
-
-  // Data dummy untuk alamat, payment methods, dan shipping methods
-  // const dummyAddresses = [
-  //   {
-  //     id: 1,
-  //     name: "Rumah",
-  //     recipient: "John Doe",
-  //     phone: "081234567890",
-  //     address: "Jl. Sudirman No. 123, Jakarta Selatan",
-  //     city: "Jakarta",
-  //     postalCode: "12190",
-  //     isPrimary: true,
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "Kantor",
-  //     recipient: "John Doe",
-  //     phone: "081234567891",
-  //     address: "Jl. Thamrin No. 456, Jakarta Pusat",
-  //     city: "Jakarta",
-  //     postalCode: "10240",
-  //     isPrimary: false,
-  //   },
-  // ];
 
   const dummyPaymentMethods = [
     { id: "bank_transfer", name: "Bank Transfer", icon: "🏦" },
@@ -94,11 +72,9 @@ export default function DirectCheckoutPage() {
   ];
 
   // Load data dari URL
-  // Load data dari URL
   useEffect(() => {
     const loadData = async () => {
       const dataParam = searchParams.get("data");
-      // console.log("Data from URL:", dataParam);
 
       if (dataParam) {
         try {
@@ -117,7 +93,7 @@ export default function DirectCheckoutPage() {
           try {
             const fetchAddresses = await getUserAddress();
             const fetchedBilling = await getUserBilling();
-            // console.log("Fetched Billing Info:", fetchedBilling);
+            console.log("Fetched Billing Info:", fetchedBilling);
 
             if (
               fetchAddresses &&
@@ -136,7 +112,6 @@ export default function DirectCheckoutPage() {
                 isPrimary: address.is_default || false,
               }));
 
-              // console.log("Formatted Addresses:", formattedAddresses);
               setAddresses(formattedAddresses);
 
               // Pilih alamat utama (default)
@@ -165,6 +140,35 @@ export default function DirectCheckoutPage() {
               };
               setAddresses([defaultAddress]);
               setSelectedAddress(defaultAddress);
+            }
+
+            // Handle billing info
+            if (fetchedBilling && fetchedBilling.data && fetchedBilling.data.length > 0) {
+              const formattedBilling = fetchedBilling.data.map((bill) => ({
+                id: bill.id,
+                NIK: bill.NIK || "",
+                NPWP: bill.NPWP || "",
+                isDefault: bill.is_default || false,
+                label: `Billing Info ${bill.id}`,
+              }));
+
+              console.log("Formatted Billing Info:", formattedBilling);
+              setBilling(formattedBilling);
+
+              // Pilih billing default
+              const defaultBilling = formattedBilling.find(
+                (bill) => bill.isDefault
+              );
+              if (defaultBilling) {
+                setSelectedBilling(defaultBilling);
+                console.log("Selected default billing:", defaultBilling);
+              } else if (formattedBilling.length > 0) {
+                setSelectedBilling(formattedBilling[0]);
+                console.log("Selected first billing:", formattedBilling[0]);
+              }
+            } else {
+              console.log("No billing info found");
+              // Billing info akan dibuat opsional, jadi tidak perlu fallback
             }
           } catch (addressError) {
             console.error("Error fetching addresses:", addressError);
@@ -230,6 +234,10 @@ export default function DirectCheckoutPage() {
     setSelectedAddress(address);
   };
 
+  const handleSelectBilling = (billingInfo) => {
+    setSelectedBilling(billingInfo);
+  };
+
   const handleShippingMethodChange = (methodId) => {
     setSelectedShippingMethod(methodId);
     const selectedMethod = shippingMethods.find((m) => m.id === methodId);
@@ -276,6 +284,7 @@ export default function DirectCheckoutPage() {
         },
       ],
       address: selectedAddress,
+      billing: selectedBilling, // Tambahkan billing info
       paymentMethod: selectedPaymentMethod,
       shippingMethod: selectedShipping,
       subtotal,
@@ -359,6 +368,7 @@ export default function DirectCheckoutPage() {
       alert("Terjadi kesalahan saat memproses pembayaran");
     }
   };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -623,17 +633,17 @@ export default function DirectCheckoutPage() {
 
               {/* Section: Alamat Pengiriman */}
               <div className="bg-white rounded-xl shadow-sm p-6">
-                {/* <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
                     Alamat Pengiriman
                   </h2>
-                  <Button
+                  {/* <Button
                     onClick={() => alert("Fitur tambah alamat belum tersedia")}
                     className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
                   >
                     + Tambah Alamat Baru
-                  </Button>
-                </div> */}
+                  </Button> */}
+                </div>
 
                 <div className="space-y-4">
                   {addresses.map((address) => (
@@ -691,6 +701,100 @@ export default function DirectCheckoutPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Section: Billing Information */}
+              {billing.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Informasi Penagihan
+                    </h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    {billing.map((bill) => (
+                      <div
+                        key={bill.id}
+                        className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                          selectedBilling?.id === bill.id
+                            ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                        onClick={() => handleSelectBilling(bill)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-gray-900">
+                                {bill.label || `Informasi Penagihan ${bill.id}`}
+                              </span>
+                              {bill.isDefault && (
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                  Utama
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              <p className="text-gray-700">
+                                <span className="font-medium">NIK:</span>{" "}
+                                <span className="text-gray-600">
+                                  {bill.NIK || "Tidak tersedia"}
+                                </span>
+                              </p>
+                              <p className="text-gray-700">
+                                <span className="font-medium">NPWP:</span>{" "}
+                                <span className="text-gray-600">
+                                  {bill.NPWP || "Tidak tersedia"}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                          {selectedBilling?.id === bill.id && (
+                            <div className="text-blue-600">
+                              <svg
+                                className="w-5 h-5"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Note jika tidak ada billing info */}
+                  {billing.length === 0 && (
+                    <div className="text-center py-6">
+                      <svg
+                        className="mx-auto h-12 w-12 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      <p className="mt-4 text-gray-500">
+                        Tidak ada informasi penagihan yang tersedia
+                      </p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Anda dapat menambahkan informasi penagihan di halaman profil
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Section: Metode Pengiriman */}
               <div className="bg-white rounded-xl shadow-sm p-6">
@@ -916,6 +1020,29 @@ export default function DirectCheckoutPage() {
                     Sisa pembayaran: Rp {(total * 0.7).toLocaleString("id-ID")}
                   </p>
                 </div>
+
+                {/* Billing Info Summary */}
+                {selectedBilling && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h3 className="font-medium text-gray-900 mb-2">
+                      Informasi Penagihan
+                    </h3>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">NIK:</span>
+                        <span className="font-medium">
+                          {selectedBilling.NIK || "Tidak tersedia"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">NPWP:</span>
+                        <span className="font-medium">
+                          {selectedBilling.NPWP || "Tidak tersedia"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Order Status Info */}
                 <div

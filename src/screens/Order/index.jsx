@@ -22,8 +22,8 @@ export default function OrdersPage() {
 
   const filters = [
     { id: "all", label: "All Orders", color: "gray" },
-    { id: "pending", label: "Pending", color: "yellow" },
     { id: "processing", label: "Processing", color: "blue" },
+    { id: "payment", label: "Payment Pending", color: "yellow" },
     { id: "shipped", label: "Shipped", color: "purple" },
     { id: "delivered", label: "Delivered", color: "green" },
     { id: "cancelled", label: "Cancelled", color: "red" },
@@ -92,7 +92,7 @@ export default function OrdersPage() {
 
   const getStatusBadge = (status) => {
     const colors = {
-      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      payment: "bg-yellow-100 text-yellow-800 border-yellow-200",
       processing: "bg-blue-100 text-blue-800 border-blue-200",
       shipped: "bg-purple-100 text-purple-800 border-purple-200",
       delivered: "bg-green-100 text-green-800 border-green-200",
@@ -100,7 +100,7 @@ export default function OrdersPage() {
     };
 
     const labels = {
-      pending: "Pending",
+      payment: "Payment Pending",
       processing: "Processing",
       shipped: "Shipped",
       delivered: "Delivered",
@@ -118,14 +118,14 @@ export default function OrdersPage() {
 
   const getPaymentStatusBadge = (status) => {
     const colors = {
-      pending: "bg-yellow-100 text-yellow-800",
+      payment: "bg-yellow-100 text-yellow-800",
       down_payment_paid: "bg-blue-100 text-blue-800",
       fully_paid: "bg-green-100 text-green-800",
       refunded: "bg-red-100 text-red-800",
     };
 
     const labels = {
-      pending: "Pending Payment",
+      payment: "Payment Pending",
       down_payment_paid: "DP Paid",
       fully_paid: "Fully Paid",
       refunded: "Refunded",
@@ -329,7 +329,7 @@ export default function OrdersPage() {
                           </div>
                           <div className="flex-1">
                             <h4 className="font-medium text-gray-900">
-                              {item.product?.name || "Unknown Product"} 
+                              {item.product?.name || "Unknown Product"}
                             </h4>
                             <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
                               <span>Qty: {item.quantity}</span>
@@ -337,8 +337,12 @@ export default function OrdersPage() {
                               <span>
                                 Price: {formatCurrency(item.unitPrice)}
                               </span>
-                              <span className={`px-2 py-1 text-xs font-medium rounded ${item.productStatus === 'Pre Order' ? 'bg-yellow-100 text-yellow-800' : item.productStatus === 'Sample Order' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
-                                {item.productStatus?`${item.productStatus}`:''}
+                              <span
+                                className={`px-2 py-1 text-xs font-medium rounded ${item.productStatus === "Pre Order" ? "bg-yellow-100 text-yellow-800" : item.productStatus === "Sample Order" ? "bg-purple-100 text-purple-800" : "bg-green-100 text-green-800"}`}
+                              >
+                                {item.productStatus
+                                  ? `${item.productStatus}`
+                                  : ""}
                               </span>
                             </div>
                           </div>
@@ -360,7 +364,7 @@ export default function OrdersPage() {
 
                     {/* Shipping Info */}
                     <div className="mt-6 pt-4 border-t border-gray-100">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <h4 className="font-medium text-gray-900 mb-2">
                             Shipping Address
@@ -398,6 +402,20 @@ export default function OrdersPage() {
                                   {formatDate(order.estimatedDelivery)}
                                 </p>
                               )}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">
+                            Billing Address
+                          </h4>
+                          {order.billingAddress && (
+                            <div className="text-sm text-gray-600">
+                              <p className="font-medium">
+                                NPWP : {order.billingAddress.NPWP || "-"}
+                              </p>
+                              <p>NIK : {order.billingAddress.NIK || "-"}</p>
+                              
                             </div>
                           )}
                         </div>
@@ -450,7 +468,7 @@ export default function OrdersPage() {
                         >
                           View Details
                         </Button>
-                        {(order.status === "pending" ||
+                        {(order.status === "payment" ||
                           order.status === "processing") && (
                           <Button
                             onClick={() =>
