@@ -255,7 +255,7 @@ export default function OrdersPage() {
                   : "You haven't placed any orders yet"}
               </p>
               <Button
-                onClick={() => router.push("/products")}
+                onClick={() => router.push("/")}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Browse Products
