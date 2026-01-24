@@ -137,12 +137,6 @@ const Header = () => {
                   href="/"
                   className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100"
                 >
-                  Profile
-                </Link>
-                <Link
-                  href="/"
-                  className="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100"
-                >
                   My Wishlist
                 </Link>
                 <button
