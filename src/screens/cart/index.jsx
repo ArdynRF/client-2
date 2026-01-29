@@ -128,7 +128,7 @@ export default function Cart() {
       {!cartItems || cartItems.length === 0 ? (
         <div className="text-center mt-10 text-gray-500 bg-white rounded-lg p-8 shadow-sm">
           <div className="text-lg mb-4">Your cart is empty.</div>
-          <Link href="/products">
+          <Link href="/">
             <Button className="bg-blue-600 hover:bg-blue-700 text-white">
               Browse Products
             </Button>

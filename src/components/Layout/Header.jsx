@@ -1,6 +1,12 @@
 "use client";
 
-import { SearchIcon, UserIcon, CartIcon, NegotiateIcon } from "@/app/icons";
+import {
+  SearchIcon,
+  UserIcon,
+  CartIcon,
+  NegotiateIcon,
+  OrderIcon,
+} from "@/app/icons";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import Input from "../ui/Input";
@@ -8,6 +14,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getCustomerData, logoutUser } from "@/actions/authActions";
 import { getCartTotal } from "@/actions/cartActions";
 import { getNegotiationsByUserId } from "@/actions/negotiationActions";
+import { getOrdersByUser } from "@/actions/checkoutActions";
+
+const ENV_WA_NUMBER = process.env.NEXT_PUBLIC_WA_NUMBER;
 
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -15,6 +24,7 @@ const Header = () => {
   const dropdownRef = useRef(null);
   const [totalCarts, setTotalCarts] = useState(0);
   const [totalNegotiations, setTotalNegotiations] = useState(0);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [userId, setUserId] = useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -76,12 +86,15 @@ const Header = () => {
       }
     };
 
+    const getTotalOrderItems = async () => {
+      const res = await getOrdersByUser("all", 1, 1000);
+      setTotalOrders(res.data.length || 0);
+    };
+
     fetchData();
     getTotalCartItems();
-    if (userId) {
-      getTotalNegotiationItems();
-    }
-  }, [userId]); // Tambahkan userId sebagai dependency
+    getTotalNegotiationItems();
+  });
 
   return (
     <header className="w-full bg-white shadow-md border-b border-gray-200 sticky top-0 z-50">
@@ -112,90 +125,34 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Right Side Icons */}
-          <div
-            className="flex items-center space-x-4 sm:space-x-6"
-            ref={dropdownRef}
-          >
-            {/* Negotiate Icon */}
-            <Link
-              href="/negotiate"
-              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors group"
-              title="Negotiations"
-            >
-              <NegotiateIcon className="h-6 w-6 text-gray-700 group-hover:text-blue-600" />
-              {totalNegotiations > 0 && (
-                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full min-w-[20px] h-5">
-                  {totalNegotiations}
-                </span>
-              )}
-              <span className="sr-only">Negotiations</span>
-            </Link>
-
-            {/* Cart Icon */}
-            <Link
-              href="/cart"
-              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors group"
-              title="Shopping Cart"
-            >
-              <CartIcon className="h-6 w-6 text-gray-700 group-hover:text-blue-600" />
-              {totalCarts > 0 && (
-                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full min-w-[20px] h-5">
-                  {totalCarts}
-                </span>
-              )}
-              <span className="sr-only">Shopping Cart</span>
-            </Link>
-
-            {/* Orders Icon */}
-            <Link
-              href="/orders"
-              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors group hidden md:block"
-              title="My Orders"
-            >
-              <div className="relative">
-                <svg
-                  className="h-6 w-6 text-gray-700 group-hover:text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                  />
-                </svg>
-                <span className="sr-only">My Orders</span>
-              </div>
-            </Link>
-
-            {/* User Profile Dropdown */}
-            <div className="relative">
-              <button
-                onClick={toggleDropdown}
-                className="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-expanded={dropdownOpen}
-                aria-haspopup="true"
-              >
-                <UserIcon className="h-6 w-6 text-gray-700" />
-                <span className="ml-2 hidden sm:inline text-sm font-medium text-gray-700">
-                  Account
-                </span>
-                <svg
-                  className={`ml-1 h-4 w-4 text-gray-500 transition-transform ${dropdownOpen ? "transform rotate-180" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
+          <div className="relative" ref={dropdownRef}>
+            <div className="flex gap-3">
+              <Link href="/negotiate">
+                <div className="relative">
+                  <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
+                    {totalNegotiations}
+                  </div>
+                  <NegotiateIcon className="w-7 h-7" />
+                </div>
+              </Link>
+              <Link href="/cart">
+                <div className="relative">
+                  <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
+                    {totalCarts}
+                  </div>
+                  <CartIcon className="w-7 h-7" />
+                </div>
+              </Link>
+              <Link href="/order">
+                <div className="relative">
+                  <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex justify-center items-center text-xs font-semibold">
+                    0
+                  </div>
+                  <CartIcon className="w-7 h-7" />
+                </div>
+              </Link>
+              <button className="icon-button" onClick={toggleDropdown}>
+                <UserIcon className="w-7 h-7" />
               </button>
 
               {/* Dropdown Menu */}
