@@ -1,47 +1,434 @@
 @import "tailwindcss";
 
-@layer components {
-  body {
-    @apply text-base text-black bg-gray-100;
+@layer base {
+  /* Base styles - untuk elemen HTML dasar */
+  * {
+    @apply transition-colors duration-200;
+    transition-property:
+      color, background-color, border-color, text-decoration-color, fill, stroke;
   }
+
+  body {
+    @apply text-base text-gray-900 bg-gray-50 antialiased;
+  }
+
+  /* Untuk mencegah flash saat hydration */
+  .checkbox-button-label {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* Reset untuk tombol */
+  button {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
+  }
+
+  /* Reset untuk link */
+  a {
+    @apply transition-colors duration-200;
+  }
+
+  /* Reset untuk input */
+  input,
+  textarea,
+  select {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500;
+  }
+}
+
+@layer components {
+  /* Navbar */
   .navbar {
     @apply py-4 bg-white shadow-lg;
   }
+
+  /* Container dengan max-width */
   .container {
-    @apply mx-auto px-4;
+    @apply mx-auto px-4 max-w-7xl;
   }
+
+  /* Container full width tanpa max-width */
+  .container-full {
+    @apply w-full px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Custom Input */
   .custom-input {
-    @apply h-12 w-full border text-black bg-gray-100 rounded-md p-3 text-base 
-      placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-[-2px]
-      focus-visible:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50
-      group-hover/input:shadow-none;
+    @apply h-12 w-full border border-gray-300 text-gray-900 bg-white rounded-lg px-4 py-3 text-base 
+      placeholder:text-gray-500 
+      focus:border-blue-500 focus:ring-2 focus:ring-blue-200
+      disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-100
+      transition-colors duration-200;
   }
 
+  /* Dropdown */
   .dropdown-menu {
-    @apply absolute right-0 mt-2 w-48 bg-white border rounded-md shadow-lg font-medium;
+    @apply absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50
+      transition-all duration-200 origin-top-right;
   }
+
+  /* Icon Button */
   .icon-button {
-    @apply bg-transparent inline-flex items-center cursor-pointer;
+    @apply bg-transparent inline-flex items-center justify-center p-2 rounded-lg
+      hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+      transition-colors duration-200 cursor-pointer;
   }
 
+  /* Checkbox Button */
   .checkbox-button-label {
-    @apply inline-flex items-center text-sm text-gray-700 border border-gray-700 rounded-lg
-      px-3 py-2 cursor-pointer peer-checked:bg-blue-700 peer-checked:text-white
-      hover:text-gray-600 hover:bg-gray-100;
-  }
-  .accordion-button {
-    @apply flex justify-between items-center w-full text-xl font-semibold cursor-pointer;
+    @apply inline-flex items-center text-sm font-medium border border-gray-300 rounded-lg
+      px-4 py-2.5 cursor-pointer transition-all duration-200
+      peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600
+      hover:bg-gray-50 hover:border-gray-400;
   }
 
+  /* Accordion */
+  .accordion-button {
+    @apply flex justify-between items-center w-full p-4 text-lg font-semibold 
+      cursor-pointer hover:bg-gray-50 rounded-lg transition-colors duration-200;
+  }
+
+  /* Product Type Label */
   .product-type-label {
-    @apply rounded-lg border border-gray-500 text-sm font-medium p-2;
+    @apply rounded-lg border border-gray-300 text-sm font-medium px-3 py-2
+      transition-colors duration-200 hover:border-gray-400 hover:bg-gray-50;
   }
+
+  /* Custom Button */
   .custom-btn {
-    @apply rounded font-medium text-base lg:text-lg leading-5 lg:leading-6 bg-blue-700
-      hover:shadow-xl disabled:pointer-events-none disabled:bg-gray-50 disabled:text-black/50
-      px-5 py-3 text-white;
+    @apply rounded-lg font-medium text-base px-6 py-3
+      bg-blue-600 text-white 
+      hover:bg-blue-700 hover:shadow-lg
+      focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+      disabled:opacity-50 disabled:cursor-not-allowed
+      transition-all duration-200;
   }
+
+  /* Custom Outline Button */
   .custom-outline-btn {
-    @apply bg-transparent text-black border border-gray-700;
+    @apply rounded-lg font-medium text-base px-6 py-3
+      bg-transparent text-gray-700 border border-gray-300
+      hover:bg-gray-50 hover:border-gray-400
+      focus:ring-2 focus:ring-gray-300 focus:ring-offset-2
+      transition-all duration-200;
   }
+
+  /* Card */
+  .custom-card {
+    @apply bg-white rounded-xl border border-gray-200 shadow-sm
+      hover:shadow-md transition-shadow duration-300;
+  }
+
+  /* Badge */
+  .custom-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-error {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-800;
+  }
+}
+
+@layer utilities {
+  /* Line Clamp Utilities */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  /* Scrollbar Styling */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded hover:bg-gray-500;
+  }
+
+  /* Animation Utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  /* Aspect Ratio */
+  .aspect-product {
+    aspect-ratio: 4/5;
+  }
+
+  /* Grid Utilities */
+  .grid-products {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6;
+  }
+}
+
+/* Custom Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Header Full Width Fix */
+.header-full-width {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+}
+
+/* Responsive Container */
+.container-responsive {
+  width: 100%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 640px) {
+  .container-responsive {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-responsive {
+    padding-left: 2rem;
+    padding-right: 2rem;
+    max-width: 1280px;
+  }
+}
+
+@media (min-width: 1536px) {
+  .container-responsive {
+    max-width: 1536px;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    @apply text-black bg-white;
+  }
+}
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html,
+  body {
+    @apply w-full overflow-x-hidden;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+@layer components {
+  .full-width-container {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+  }
+
+  .content-container {
+    @apply w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+}
+
+/* Product Card Hover Effects */
+.product-card-hover {
+  transition: all 0.2s ease;
+}
+
+.product-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Carousel Animation */
+.carousel-image-enter {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.carousel-image-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 300ms,
+    transform 300ms;
+}
+
+.carousel-image-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.carousel-image-exit-active {
+  opacity: 0;
+  transform: scale(0.95);
+  transition:
+    opacity 300ms,
+    transform 300ms;
+}
+
+/* Custom Scrollbar for Thumbnails */
+.thumbnail-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.thumbnail-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.thumbnail-scroll::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.thumbnail-scroll::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Product Detail Spacing Improvements */
+.product-detail-section {
+  margin-bottom: 2.5rem !important;
+}
+
+.product-button-spacing {
+  padding-top: 1.5rem !important;
+  padding-bottom: 1.5rem !important;
+}
+
+/* Full Width Container */
+.full-width-container {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+}
+
+/* Better Spacing Utilities */
+.space-y-8 > * + * {
+  margin-top: 2rem !important;
+}
+
+.space-y-10 > * + * {
+  margin-top: 2.5rem !important;
+}
+
+/* Card Spacing */
+.spacious-card {
+  padding: 2rem !important;
+}
+
+@media (min-width: 1024px) {
+  .spacious-card {
+    padding: 2.5rem !important;
+  }
+}
+
+/* Button Spacing */
+.spacious-button {
+  padding: 1rem 2rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+/* Section Spacing */
+.section-spacing {
+  margin-top: 3rem !important;
+  margin-bottom: 3rem !important;
 }

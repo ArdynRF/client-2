@@ -2,15 +2,20 @@
 
 import Accordion from "@/components/ui/Accordion";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const FilterSection = ({ productTypes }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const currentParams = new URLSearchParams(searchParams.toString());
+  const [mounted, setMounted] = useState(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentParams = new URLSearchParams(searchParams.toString());
   const openAccordion = currentParams.get("openAccordion")?.split(",") || [];
 
-  // Mengambil filter sebagai array string dari URL
   const getFilterArray = (key) =>
     currentParams.get(key)?.split(",").filter(Boolean) || [];
 
@@ -25,6 +30,8 @@ const FilterSection = ({ productTypes }) => {
   };
 
   const updateSearchParams = (newParams) => {
+    if (!mounted) return;
+
     const updatedParams = new URLSearchParams(currentParams);
 
     Object.entries(newParams).forEach(([key, value]) => {
@@ -60,7 +67,7 @@ const FilterSection = ({ productTypes }) => {
     const selectedValues = filters[key];
 
     return (
-      <div className="flex flex-wrap gap-3 pt-2">
+      <div className="flex flex-col gap-1.5 pt-2">
         {items.map((item) => {
           const isAll = item.value === "all";
           const isChecked = isAll
@@ -68,19 +75,43 @@ const FilterSection = ({ productTypes }) => {
             : selectedValues.includes(item.value);
 
           return (
-            <div key={item.value}>
+            <div key={item.value} className="relative">
               <input
                 type="checkbox"
                 id={`${keyPrefix}-${item.value}`}
                 className="hidden peer"
                 checked={isChecked}
                 onChange={() => toggleFilterValue(key, item.value)}
+                disabled={!mounted}
               />
               <label
                 htmlFor={`${keyPrefix}-${item.value}`}
-                className="checkbox-button-label"
+                className={`
+                  flex items-center w-full px-3 py-2 text-sm rounded-lg border cursor-pointer transition-all duration-150
+                  ${
+                    isChecked
+                      ? "bg-blue-50 border-blue-500 text-blue-700 font-medium"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }
+                  ${isAll ? "font-semibold border-gray-300" : ""}
+                `}
               >
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {isChecked && !isAll && (
+                  <svg
+                    className="w-4 h-4 text-blue-600 ml-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                )}
               </label>
             </div>
           );
@@ -139,72 +170,118 @@ const FilterSection = ({ productTypes }) => {
     { label: "Embroidered", value: "embroidered" },
   ];
 
+  const resetAllFilters = () => {
+    const paramsToReset = [
+      "productTypeId",
+      "weight",
+      "width",
+      "yarnNumber",
+      "technics",
+      "style",
+      "pattern",
+      "openAccordion",
+    ];
+
+    const resetParams = {};
+    paramsToReset.forEach((param) => (resetParams[param] = []));
+
+    updateSearchParams(resetParams);
+  };
+
+  const activeFilterCount = Object.values(filters).flat().length;
+
   return (
-    <div className="rounded-lg shadow-lg space-y-3 p-5 bg-white h-fit">
-      <h1 className="text-2xl mb-8 font-semibold">Filters</h1>
+    <div className="rounded-lg border border-gray-200 bg-white h-fit sticky top-6 shadow-sm">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+          {activeFilterCount > 0 && (
+            <button
+              onClick={resetAllFilters}
+              className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              disabled={!mounted}
+            >
+              Reset
+            </button>
+          )}
+        </div>
 
-      <Accordion
-        title="Category"
-        isOpened={openAccordion.includes("category")}
-        type="category"
-        handleAccordion={handleAccordion}
-      >
-        {renderCheckboxGroup(productTypes, "category", "productTypeId")}
-      </Accordion>
+        {activeFilterCount > 0 && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-600">Active filters:</span>
+            <span className="font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+              {activeFilterCount}
+            </span>
+          </div>
+        )}
+      </div>
 
-      <Accordion
-        title="Weight"
-        isOpened={openAccordion.includes("weight")}
-        type="weight"
-        handleAccordion={handleAccordion}
-      >
-        {renderCheckboxGroup(WeightItems, "weight", "weight")}
-      </Accordion>
+      {/* Accordion Filters */}
+      <div className="divide-y divide-gray-100 max-h-[calc(100vh-200px)] overflow-y-auto">
+        <Accordion
+          title="Category"
+          isOpened={openAccordion.includes("category")}
+          type="category"
+          handleAccordion={handleAccordion}
+        >
+          {renderCheckboxGroup(productTypes, "category", "productTypeId")}
+        </Accordion>
 
-      <Accordion
-        title="Width"
-        isOpened={openAccordion.includes("width")}
-        type="width"
-        handleAccordion={handleAccordion}
-      >
-        {renderCheckboxGroup(WidthItems, "width", "width")}
-      </Accordion>
+        <Accordion
+          title="Weight"
+          isOpened={openAccordion.includes("weight")}
+          type="weight"
+          handleAccordion={handleAccordion}
+        >
+          {renderCheckboxGroup(WeightItems, "weight", "weight")}
+        </Accordion>
 
-      <Accordion
-        title="Number of yarn"
-        isOpened={openAccordion.includes("yarn")}
-        type="yarn"
-        handleAccordion={handleAccordion}
-      >
-        {renderCheckboxGroup(YarnNumberItems, "yarn", "yarnNumber")}
-      </Accordion>
+        <Accordion
+          title="Width"
+          isOpened={openAccordion.includes("width")}
+          type="width"
+          handleAccordion={handleAccordion}
+        >
+          {renderCheckboxGroup(WidthItems, "width", "width")}
+        </Accordion>
 
-      <Accordion
-        title="Technics"
-        isOpened={openAccordion.includes("technics")}
-        type="technics"
-        handleAccordion={handleAccordion}
-      >
-        {renderCheckboxGroup(TechnicsItems, "technics", "technics")}
-      </Accordion>
+        <Accordion
+          title="Yarn Number"
+          isOpened={openAccordion.includes("yarn")}
+          type="yarn"
+          handleAccordion={handleAccordion}
+        >
+          {renderCheckboxGroup(YarnNumberItems, "yarn", "yarnNumber")}
+        </Accordion>
 
-      <Accordion
-        title="Style"
-        isOpened={openAccordion.includes("style")}
-        type="style"
-        handleAccordion={handleAccordion}
-      >
-        {renderCheckboxGroup(StyleItems, "style", "style")}
-      </Accordion>
+        <Accordion
+          title="Technics"
+          isOpened={openAccordion.includes("technics")}
+          type="technics"
+          handleAccordion={handleAccordion}
+        >
+          {renderCheckboxGroup(TechnicsItems, "technics", "technics")}
+        </Accordion>
 
-      <Accordion
-        title="Pattern"
-        isOpened={openAccordion.includes("pattern")}
-        type="pattern"
-        handleAccordion={handleAccordion}
-      >
-        {renderCheckboxGroup(PatternItems, "pattern", "pattern")}
-      </Accordion>
+        <Accordion
+          title="Style"
+          isOpened={openAccordion.includes("style")}
+          type="style"
+          handleAccordion={handleAccordion}
+        >
+          {renderCheckboxGroup(StyleItems, "style", "style")}
+        </Accordion>
+
+        <Accordion
+          title="Pattern"
+          isOpened={openAccordion.includes("pattern")}
+          type="pattern"
+          handleAccordion={handleAccordion}
+        >
+          {renderCheckboxGroup(PatternItems, "pattern", "pattern")}
+        </Accordion>
+      </div>
     </div>
   );
 };
